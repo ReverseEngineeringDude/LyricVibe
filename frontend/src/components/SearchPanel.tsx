@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
-import { Search, Music, Upload, Plus, Play, Loader2, X } from 'lucide-react';
-import { searchTracks, uploadAudio, TrackMetadata } from '@/lib/api';
+import { Search, Music, Upload, Plus, Play, Loader2, X, Globe } from 'lucide-react';
+import { searchTracks, uploadAudio, TrackMetadata, getCustomBackendUrl, setCustomBackendUrl } from '@/lib/api';
 import { usePlayerStore } from '@/store/usePlayerStore';
 
 export const SearchPanel: React.FC = () => {
@@ -9,6 +9,7 @@ export const SearchPanel: React.FC = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
+  const [backendUrlInput, setBackendUrlInput] = useState(getCustomBackendUrl());
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -145,8 +146,38 @@ export const SearchPanel: React.FC = () => {
       {/* Results / Empty / Skeleton State */}
       <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
         {searchError && (
-          <div className="p-3 bg-red-950/40 border border-red-800/40 rounded-xl text-xs text-red-200">
-            {searchError}
+          <div className="p-3.5 bg-red-950/40 border border-red-800/40 rounded-xl text-xs text-red-200 space-y-2.5">
+            <div>{searchError}</div>
+            {(searchError.includes('VITE_API_BASE_URL') || searchError.includes('HTML instead of JSON')) && (
+              <div className="pt-2 border-t border-red-800/40 flex flex-col gap-2">
+                <div className="flex items-center gap-1.5 text-[11px] text-gray-300 font-medium">
+                  <Globe className="w-3.5 h-3.5 text-brand-400" />
+                  Connect Backend URL (Render / PythonAnywhere):
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    placeholder="https://lyricvibe-backend.onrender.com"
+                    value={backendUrlInput}
+                    onChange={(e) => setBackendUrlInput(e.target.value)}
+                    className="flex-1 bg-surface border border-surfaceBorder rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-brand-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (backendUrlInput.trim()) {
+                        setCustomBackendUrl(backendUrlInput);
+                        setSearchError(null);
+                        handleSearch();
+                      }
+                    }}
+                    className="px-3 py-1.5 bg-brand-500 hover:bg-brand-600 text-white rounded-lg text-xs font-medium transition-colors shrink-0"
+                  >
+                    Save & Retry
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

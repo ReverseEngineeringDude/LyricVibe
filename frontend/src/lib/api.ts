@@ -33,8 +33,39 @@ export interface LyricsResponse {
   candidates?: LyricCandidate[];
 }
 
-const BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
-export const API_BASE = `${BASE_URL}/api`;
+export function getApiBase(): string {
+  if (typeof window !== 'undefined') {
+    const custom = localStorage.getItem('lyricvibe_backend_url');
+    if (custom && custom.trim()) {
+      return `${custom.trim().replace(/\/$/, '')}/api`;
+    }
+  }
+  const envBase = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+  return envBase ? `${envBase}/api` : '/api';
+}
+
+export function setCustomBackendUrl(url: string): void {
+  if (typeof window !== 'undefined') {
+    if (url.trim()) {
+      localStorage.setItem('lyricvibe_backend_url', url.trim().replace(/\/$/, ''));
+    } else {
+      localStorage.removeItem('lyricvibe_backend_url');
+    }
+  }
+}
+
+export function getCustomBackendUrl(): string {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('lyricvibe_backend_url') || import.meta.env.VITE_API_BASE_URL || '';
+  }
+  return import.meta.env.VITE_API_BASE_URL || '';
+}
+
+export const API_BASE = {
+  toString: () => getApiBase(),
+  valueOf: () => getApiBase(),
+  [Symbol.toPrimitive]: () => getApiBase(),
+} as unknown as string;
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, init);
