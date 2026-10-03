@@ -1,5 +1,6 @@
 {
   "hosting": {
+    "site": "lyricvibes",
     "public": "frontend/dist",
     "ignore": [
       "firebase.json",
