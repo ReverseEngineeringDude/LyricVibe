@@ -1,0 +1,241 @@
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
+from typing import Any, Dict, List, Optional
+import yt_dlp
+
+from backend.config import YTDLP_COOKIES_FILE
+from backend.services.title_clean import parse_artist_title, clean_channel_name
+from backend.services.cache import (
+    get_cached_stream_url,
+    set_cached_stream_url,
+    invalidate_cached_stream_url,
+    get_cached_track,
+    set_cached_track,
+)
+
+# Dedicated thread pool executor for CPU/blocking yt-dlp extraction
+_executor = ThreadPoolExecutor(max_workers=8)
+
+
+class TrackError(Exception):
+    def __init__(self, code: str, message: str, status_code: int = 400):
+        self.code = code
+        self.message = message
+        self.status_code = status_code
+        super().__init__(message)
+
+
+def _get_ydl_base_opts() -> dict:
+    opts: Dict[str, Any] = {
+        "quiet": True,
+        "no_warnings": True,
+        "noplaylist": True,
+        "socket_timeout": 15,
+        "extract_flat": False,
+    }
+    if YTDLP_COOKIES_FILE:
+        opts["cookiefile"] = YTDLP_COOKIES_FILE
+    return opts
+
+
+def _classify_ytdlp_error(err_msg: str) -> TrackError:
+    err_lower = err_msg.lower()
+    if "sign in to confirm your age" in err_lower or "age-restricted" in err_lower:
+        return TrackError(
+            code="AGE_RESTRICTED",
+            message="This video is age-restricted and cannot be streamed directly.",
+            status_code=403,
+        )
+    if "is not available in your country" in err_lower or "geo-restricted" in err_lower:
+        return TrackError(
+            code="GEO_BLOCKED",
+            message="This video is not available in your region.",
+            status_code=403,
+        )
+    if "video unavailable" in err_lower or "this video has been removed" in err_lower or "private video" in err_lower:
+        return TrackError(
+            code="VIDEO_UNAVAILABLE",
+            message="This video is private, removed, or unavailable.",
+            status_code=404,
+        )
+    if "live stream" in err_lower or "is a live event" in err_lower:
+        return TrackError(
+            code="LIVE_STREAM_UNSUPPORTED",
+            message="Live streams are not supported for playback and lyric generation.",
+            status_code=400,
+        )
+    return TrackError(
+        code="EXTRACTION_FAILED",
+        message=f"Failed to load video: {err_msg[:120]}",
+        status_code=502,
+    )
+
+
+def _sync_search_tracks(query: str, limit: int = 10) -> List[Dict[str, Any]]:
+    opts = _get_ydl_base_opts()
+    opts["extract_flat"] = True
+    opts["default_search"] = f"ytsearch{limit}"
+
+    search_query = f"ytsearch{limit}:{query}"
+    results: List[Dict[str, Any]] = []
+
+    try:
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            data = ydl.extract_info(search_query, download=False)
+            if not data or "entries" not in data:
+                return []
+
+            for entry in data.get("entries", []):
+                if not entry:
+                    continue
+                video_id = entry.get("id")
+                if not video_id:
+                    continue
+
+                raw_title = entry.get("title") or "Unknown Title"
+                channel = clean_channel_name(entry.get("uploader") or entry.get("channel") or "")
+                parsed = parse_artist_title(raw_title, channel)
+
+                # Thumbnail resolution
+                thumbnails = entry.get("thumbnails") or []
+                thumbnail_url = ""
+                if thumbnails:
+                    thumbnail_url = thumbnails[-1].get("url", "")
+                elif entry.get("thumbnail"):
+                    thumbnail_url = entry.get("thumbnail")
+                if not thumbnail_url and video_id:
+                    thumbnail_url = f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg"
+
+                duration = entry.get("duration") or 0
+
+                results.append(
+                    {
+                        "id": video_id,
+                        "title": raw_title,
+                        "artist": parsed["artist"],
+                        "track": parsed["track"],
+                        "channel": channel,
+                        "duration": int(duration),
+                        "thumbnail": thumbnail_url,
+                    }
+                )
+    except Exception as e:
+        raise _classify_ytdlp_error(str(e))
+
+    return results
+
+
+def _sync_get_track_metadata(video_id: str) -> Dict[str, Any]:
+    url = f"https://www.youtube.com/watch?v={video_id}"
+    opts = _get_ydl_base_opts()
+    opts["format"] = "bestaudio/best"
+    opts["skip_download"] = True
+
+    try:
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+            if not info:
+                raise TrackError(code="TRACK_NOT_FOUND", message="Video not found.", status_code=404)
+
+            if info.get("is_live"):
+                raise TrackError(
+                    code="LIVE_STREAM_UNSUPPORTED",
+                    message="Live stream audio is not supported.",
+                    status_code=400,
+                )
+
+            raw_title = info.get("title") or "Unknown Title"
+            channel = clean_channel_name(info.get("uploader") or info.get("channel") or "")
+            parsed = parse_artist_title(raw_title, channel)
+            duration = int(info.get("duration") or 0)
+
+            # Best thumbnail
+            thumbnail_url = info.get("thumbnail") or ""
+            if not thumbnail_url and video_id:
+                thumbnail_url = f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg"
+
+            return {
+                "id": video_id,
+                "title": raw_title,
+                "artist": parsed["artist"],
+                "track": parsed["track"],
+                "uploader": channel,
+                "duration": duration,
+                "thumbnail": thumbnail_url,
+            }
+    except TrackError:
+        raise
+    except Exception as e:
+        raise _classify_ytdlp_error(str(e))
+
+
+def _sync_extract_stream_url(video_id: str) -> Dict[str, Any]:
+    url = f"https://www.youtube.com/watch?v={video_id}"
+    opts = _get_ydl_base_opts()
+    opts["format"] = "bestaudio/best"
+    opts["skip_download"] = True
+
+    try:
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+            if not info:
+                raise TrackError(code="TRACK_NOT_FOUND", message="Audio stream not found.", status_code=404)
+
+            # Direct stream URL selection
+            stream_url = info.get("url")
+            # If info contains formats, locate the best audio format
+            if not stream_url and "formats" in info:
+                audio_formats = [
+                    f for f in info["formats"]
+                    if f.get("acodec") != "none" and (f.get("vcodec") == "none" or not f.get("vcodec"))
+                ]
+                if not audio_formats:
+                    audio_formats = info["formats"]
+                # Sort by abr or tbr
+                audio_formats.sort(key=lambda x: (x.get("abr") or x.get("tbr") or 0), reverse=True)
+                if audio_formats:
+                    stream_url = audio_formats[0].get("url")
+
+            if not stream_url:
+                raise TrackError(code="NO_AUDIO_STREAM", message="No playable audio stream found.", status_code=502)
+
+            http_headers = info.get("http_headers", {})
+            return {
+                "stream_url": stream_url,
+                "headers": http_headers,
+                "duration": int(info.get("duration") or 0),
+            }
+    except TrackError:
+        raise
+    except Exception as e:
+        raise _classify_ytdlp_error(str(e))
+
+
+async def search_tracks(query: str, limit: int = 10) -> List[Dict[str, Any]]:
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(_executor, _sync_search_tracks, query, limit)
+
+
+async def get_track_info(video_id: str) -> Dict[str, Any]:
+    cached = get_cached_track(video_id)
+    if cached:
+        return cached
+
+    loop = asyncio.get_running_loop()
+    metadata = await loop.run_in_executor(_executor, _sync_get_track_metadata, video_id)
+    set_cached_track(video_id, metadata)
+    return metadata
+
+
+async def get_stream_url(video_id: str, force_refresh: bool = False) -> str:
+    if not force_refresh:
+        cached = get_cached_stream_url(video_id)
+        if cached:
+            return cached
+
+    invalidate_cached_stream_url(video_id)
+    loop = asyncio.get_running_loop()
+    data = await loop.run_in_executor(_executor, _sync_extract_stream_url, video_id)
+    stream_url = data["stream_url"]
+    set_cached_stream_url(video_id, stream_url)
+    return stream_url
