@@ -34,11 +34,6 @@ def _get_ydl_base_opts() -> dict:
         "noplaylist": True,
         "socket_timeout": 15,
         "extract_flat": False,
-        "extractor_args": {
-            "youtube": {
-                "player_client": ["android", "web"],
-            }
-        },
     }
     if YTDLP_COOKIES_FILE:
         opts["cookiefile"] = YTDLP_COOKIES_FILE
@@ -188,20 +183,29 @@ def _sync_extract_stream_url(video_id: str) -> Dict[str, Any]:
             if not info:
                 raise TrackError(code="TRACK_NOT_FOUND", message="Audio stream not found.", status_code=404)
 
-            # Direct stream URL selection
-            stream_url = info.get("url")
-            # If info contains formats, locate the best audio format
-            if not stream_url and "formats" in info:
+            # Filter for true audio-only formats first (acodec != none, vcodec == none)
+            stream_url = None
+            content_type = "audio/mp4"
+            if "formats" in info:
                 audio_formats = [
                     f for f in info["formats"]
-                    if f.get("acodec") != "none" and (f.get("vcodec") == "none" or not f.get("vcodec"))
+                    if f.get("acodec") != "none"
+                    and (not f.get("vcodec") or f.get("vcodec") == "none")
+                    and f.get("url")
+                    and not f.get("url", "").endswith(".m3u8")
+                    and "manifest.googlevideo.com" not in f.get("url", "")
                 ]
-                if not audio_formats:
-                    audio_formats = info["formats"]
-                # Sort by abr or tbr
-                audio_formats.sort(key=lambda x: (x.get("abr") or x.get("tbr") or 0), reverse=True)
                 if audio_formats:
-                    stream_url = audio_formats[0].get("url")
+                    # Sort by audio bitrate (abr or tbr)
+                    audio_formats.sort(key=lambda x: (x.get("abr") or x.get("tbr") or 0), reverse=True)
+                    best_audio = audio_formats[0]
+                    stream_url = best_audio.get("url")
+                    ext = best_audio.get("ext", "m4a")
+                    content_type = "audio/mp4" if ext == "m4a" else "audio/webm"
+
+            # Fallback to direct url if formats filter didn't match
+            if not stream_url:
+                stream_url = info.get("url")
 
             if not stream_url:
                 raise TrackError(code="NO_AUDIO_STREAM", message="No playable audio stream found.", status_code=502)
@@ -210,6 +214,7 @@ def _sync_extract_stream_url(video_id: str) -> Dict[str, Any]:
             return {
                 "stream_url": stream_url,
                 "headers": http_headers,
+                "content_type": content_type,
                 "duration": int(info.get("duration") or 0),
             }
     except TrackError:

@@ -55,7 +55,7 @@ export function useAudioClock() {
 
       let msg = `Audio playback error (Code ${code}): ${audio.error.message || 'Failed to open media'}`;
       try {
-        const res = await fetch(audio.src, { method: 'HEAD' });
+        const res = await fetch(audio.src, { method: 'GET', headers: { Range: 'bytes=0-1' } });
         if (!res.ok) {
           if (res.status === 502 || res.status === 503) {
             setError('Backend server is spinning up (cold start)... Retrying in 4s.');

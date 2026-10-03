@@ -40,7 +40,7 @@ async def _stream_local_file(file_path: Path, start: int, end: int) -> AsyncGene
             yield data
 
 
-def _serve_local_file(file_path: Path, range_header: Optional[str]) -> Response:
+def _serve_local_file(file_path: Path, range_header: Optional[str], is_head: bool = False) -> Response:
     file_size = file_path.stat().st_size
     suffix = file_path.suffix.lower()
     content_type_map = {
@@ -65,6 +65,8 @@ def _serve_local_file(file_path: Path, range_header: Optional[str]) -> Response:
             "Content-Type": content_type,
             "Access-Control-Allow-Origin": "*",
         }
+        if is_head:
+            return Response(status_code=206, headers=headers)
         return StreamingResponse(
             _stream_local_file(file_path, start, end),
             status_code=206,
@@ -77,6 +79,8 @@ def _serve_local_file(file_path: Path, range_header: Optional[str]) -> Response:
         "Content-Type": content_type,
         "Access-Control-Allow-Origin": "*",
     }
+    if is_head:
+        return Response(status_code=200, headers=headers)
     return StreamingResponse(
         _stream_local_file(file_path, 0, file_size - 1),
         status_code=200,
@@ -85,6 +89,7 @@ def _serve_local_file(file_path: Path, range_header: Optional[str]) -> Response:
 
 
 @router.get("/stream/{video_id}")
+@router.head("/stream/{video_id}")
 async def stream_audio_endpoint(
     video_id: str,
     request: Request,
@@ -103,7 +108,7 @@ async def stream_audio_endpoint(
                 status_code=404,
                 detail={"error": "FILE_NOT_FOUND", "message": "Uploaded audio file not found."},
             )
-        return _serve_local_file(matching[0], range)
+        return _serve_local_file(matching[0], range, request.method == "HEAD")
 
     # 2. Handle YouTube stream
     upstream_info = None
@@ -168,8 +173,15 @@ async def stream_audio_endpoint(
             if val:
                 response_headers[h] = val
 
-        if "content-type" not in response_headers or not response_headers["content-type"]:
-            response_headers["content-type"] = "audio/webm"
+        default_content_type = upstream_info.get("content_type", "audio/mp4")
+        if "content-type" not in response_headers or not response_headers["content-type"] or "video" in response_headers["content-type"]:
+            response_headers["content-type"] = default_content_type
+
+        # Early return for HEAD requests (no body needed)
+        if request.method == "HEAD":
+            await upstream_resp.aclose()
+            await client.aclose()
+            return Response(status_code=upstream_resp.status_code, headers=response_headers)
 
         async def stream_generator():
             try:
