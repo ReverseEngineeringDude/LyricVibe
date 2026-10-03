@@ -49,10 +49,41 @@ export function useAudioClock() {
       nextTrack();
     };
 
-    const handleError = () => {
-      if (audio.error) {
-        setError(`Audio playback error (Code ${audio.error.code}): ${audio.error.message || 'Stream unavailable'}`);
+    const handleError = async () => {
+      if (!audio.error) return;
+      const code = audio.error.code;
+
+      let msg = `Audio playback error (Code ${code}): ${audio.error.message || 'Failed to open media'}`;
+      try {
+        const res = await fetch(audio.src, { method: 'HEAD' });
+        if (!res.ok) {
+          if (res.status === 502 || res.status === 503) {
+            setError('Backend server is spinning up (cold start)... Retrying in 4s.');
+            setTimeout(() => {
+              if (audioRef.current && audioRef.current.src === audio.src) {
+                audioRef.current.load();
+                audioRef.current.play().catch(() => {});
+              }
+            }, 4000);
+            return;
+          }
+          if (res.status === 404) {
+            msg = 'Audio stream not found (404). Track may be unavailable.';
+          } else if (res.status === 403) {
+            msg = 'Access forbidden (403). Stream may be geo-restricted or age-gated.';
+          } else {
+            msg = `Audio stream request returned error status ${res.status}.`;
+          }
+        } else {
+          const ct = res.headers.get('content-type') || '';
+          if (ct.includes('text/html')) {
+            msg = 'Received HTML instead of audio stream. Ensure your backend URL is connected in Search.';
+          }
+        }
+      } catch {
+        msg = `Cannot reach audio backend at ${audio.src}. Check network or backend connection.`;
       }
+      setError(msg);
     };
 
     const handleCustomSeek = (e: Event) => {

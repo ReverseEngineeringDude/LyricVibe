@@ -7,7 +7,9 @@ from backend.config import YTDLP_COOKIES_FILE
 from backend.services.title_clean import parse_artist_title, clean_channel_name
 from backend.services.cache import (
     get_cached_stream_url,
+    get_cached_stream_info,
     set_cached_stream_url,
+    set_cached_stream_info,
     invalidate_cached_stream_url,
     get_cached_track,
     set_cached_track,
@@ -32,6 +34,11 @@ def _get_ydl_base_opts() -> dict:
         "noplaylist": True,
         "socket_timeout": 15,
         "extract_flat": False,
+        "extractor_args": {
+            "youtube": {
+                "player_client": ["android", "web"],
+            }
+        },
     }
     if YTDLP_COOKIES_FILE:
         opts["cookiefile"] = YTDLP_COOKIES_FILE
@@ -227,15 +234,19 @@ async def get_track_info(video_id: str) -> Dict[str, Any]:
     return metadata
 
 
-async def get_stream_url(video_id: str, force_refresh: bool = False) -> str:
+async def get_stream_info(video_id: str, force_refresh: bool = False) -> Dict[str, Any]:
     if not force_refresh:
-        cached = get_cached_stream_url(video_id)
+        cached = get_cached_stream_info(video_id)
         if cached:
             return cached
 
     invalidate_cached_stream_url(video_id)
     loop = asyncio.get_running_loop()
     data = await loop.run_in_executor(_executor, _sync_extract_stream_url, video_id)
-    stream_url = data["stream_url"]
-    set_cached_stream_url(video_id, stream_url)
-    return stream_url
+    set_cached_stream_info(video_id, data)
+    return data
+
+
+async def get_stream_url(video_id: str, force_refresh: bool = False) -> str:
+    data = await get_stream_info(video_id, force_refresh)
+    return data["stream_url"]

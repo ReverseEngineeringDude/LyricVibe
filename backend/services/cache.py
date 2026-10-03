@@ -20,11 +20,27 @@ _rate_limit_cache: Dict[str, list] = {}
 
 
 def get_cached_stream_url(video_id: str) -> Optional[str]:
-    return _stream_cache.get(video_id)
+    val = _stream_cache.get(video_id)
+    if isinstance(val, dict):
+        return val.get("stream_url")
+    return val
+
+
+def get_cached_stream_info(video_id: str) -> Optional[Dict[str, Any]]:
+    val = _stream_cache.get(video_id)
+    if isinstance(val, dict):
+        return val
+    if isinstance(val, str):
+        return {"stream_url": val, "headers": {}}
+    return None
 
 
 def set_cached_stream_url(video_id: str, url: str) -> None:
     _stream_cache[video_id] = url
+
+
+def set_cached_stream_info(video_id: str, data: Dict[str, Any]) -> None:
+    _stream_cache[video_id] = data
 
 
 def invalidate_cached_stream_url(video_id: str) -> None:

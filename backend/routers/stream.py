@@ -6,7 +6,7 @@ from fastapi import APIRouter, Header, HTTPException, Request, Response
 from fastapi.responses import StreamingResponse
 
 from backend.config import UPLOAD_DIR
-from backend.services.ytdlp_service import get_stream_url, TrackError
+from backend.services.ytdlp_service import get_stream_url, get_stream_info, TrackError
 
 router = APIRouter(prefix="/api", tags=["stream"])
 
@@ -106,9 +106,9 @@ async def stream_audio_endpoint(
         return _serve_local_file(matching[0], range)
 
     # 2. Handle YouTube stream
-    upstream_url = None
+    upstream_info = None
     try:
-        upstream_url = await get_stream_url(video_id, force_refresh=False)
+        upstream_info = await get_stream_info(video_id, force_refresh=False)
     except TrackError as e:
         raise HTTPException(status_code=e.status_code, detail={"error": e.code, "message": e.message})
     except Exception as e:
@@ -117,12 +117,16 @@ async def stream_audio_endpoint(
             detail={"error": "STREAM_EXTRACT_FAILED", "message": str(e)},
         )
 
+    upstream_url = upstream_info["stream_url"]
+    upstream_headers = upstream_info.get("headers", {})
+
     client_headers = {
         "User-Agent": (
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
             "AppleWebKit/537.36 (KHTML, like Gecko) "
             "Chrome/124.0.0.0 Safari/537.36"
         ),
+        **upstream_headers,
     }
     if range:
         client_headers["Range"] = range
@@ -136,7 +140,9 @@ async def stream_audio_endpoint(
         # If 403 Forbidden or expired URL, refresh stream URL and retry once
         if upstream_resp.status_code in (403, 410):
             await upstream_resp.aclose()
-            upstream_url = await get_stream_url(video_id, force_refresh=True)
+            upstream_info = await get_stream_info(video_id, force_refresh=True)
+            upstream_url = upstream_info["stream_url"]
+            client_headers.update(upstream_info.get("headers", {}))
             req = client.build_request("GET", upstream_url, headers=client_headers)
             upstream_resp = await client.send(req, stream=True)
 
