@@ -23,6 +23,7 @@ import {
   PanelRightClose,
   PanelRightOpen,
   AlertCircle,
+  Loader2,
   X,
   Eye,
   EyeOff,
@@ -170,17 +171,27 @@ export const App: React.FC = () => {
         </header>
       )}
 
-      {/* Global Error Banner */}
+      {/* Global Error / Cold Start Banner */}
       {error && (
         <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 max-w-md w-full px-4 animate-fade-in">
-          <div className="flex items-center justify-between p-3 rounded-xl bg-red-950/90 border border-red-800 text-xs text-red-200 shadow-2xl backdrop-blur-md">
+          <div
+            className={`flex items-center justify-between p-3 rounded-xl border text-xs shadow-2xl backdrop-blur-md ${
+              error.toLowerCase().includes('waking up') || error.toLowerCase().includes('spinning up') || error.toLowerCase().includes('awake')
+                ? 'bg-amber-950/90 border-amber-600/70 text-amber-200'
+                : 'bg-red-950/90 border-red-800 text-red-200'
+            }`}
+          >
             <div className="flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
+              {error.toLowerCase().includes('waking up') || error.toLowerCase().includes('spinning up') ? (
+                <Loader2 className="w-4 h-4 shrink-0 text-amber-400 animate-spin" />
+              ) : (
+                <AlertCircle className={`w-4 h-4 shrink-0 ${error.toLowerCase().includes('awake') ? 'text-amber-400' : 'text-red-400'}`} />
+              )}
               <span>{error}</span>
             </div>
             <button
               onClick={() => setError(null)}
-              className="p-1 text-red-400 hover:text-white rounded"
+              className="p-1 text-zinc-400 hover:text-white rounded"
             >
               <X className="w-4 h-4" />
             </button>

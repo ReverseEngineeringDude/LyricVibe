@@ -75,6 +75,7 @@ app.include_router(convert.router)
 app.include_router(analysis.router)
 
 
+@app.get("/health")
 @app.get("/api/health")
 async def health_check():
     return {"status": "ok", "service": "LyricVibe"}
