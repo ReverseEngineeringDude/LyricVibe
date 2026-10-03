@@ -255,6 +255,7 @@ def _sync_extract_stream_url(video_id: str) -> Dict[str, Any]:
             # Filter for true audio-only progressive formats first
             stream_url = None
             content_type = "audio/mp4"
+            format_headers = {}
             if "formats" in info:
                 audio_formats = [
                     f for f in info["formats"]
@@ -281,15 +282,17 @@ def _sync_extract_stream_url(video_id: str) -> Dict[str, Any]:
                     stream_url = best_audio.get("url")
                     ext = best_audio.get("ext", "m4a")
                     content_type = "audio/mp4" if ext == "m4a" else "audio/webm"
+                    format_headers = best_audio.get("http_headers") or {}
 
             # Fallback to direct url if formats filter didn't match
             if not stream_url:
                 stream_url = info.get("url")
+                format_headers = info.get("http_headers") or {}
 
             if not stream_url:
                 raise TrackError(code="NO_AUDIO_STREAM", message="No playable audio stream found.", status_code=502)
 
-            http_headers = info.get("http_headers", {})
+            http_headers = format_headers or info.get("http_headers") or {}
             return {
                 "stream_url": stream_url,
                 "headers": http_headers,

@@ -1,4 +1,5 @@
 import os
+import logging
 from pathlib import Path
 from typing import AsyncGenerator, Optional
 import httpx
@@ -8,6 +9,7 @@ from fastapi.responses import StreamingResponse
 from backend.config import UPLOAD_DIR
 from backend.services.ytdlp_service import get_stream_url, get_stream_info, TrackError
 
+logger = logging.getLogger("stream")
 router = APIRouter(prefix="/api", tags=["stream"])
 
 CHUNK_SIZE = 64 * 1024  # 64 KB chunks for streaming
@@ -115,8 +117,10 @@ async def stream_audio_endpoint(
     try:
         upstream_info = await get_stream_info(video_id, force_refresh=False)
     except TrackError as e:
+        logger.error(f"Stream TrackError for {video_id}: [{e.code}] {e.message}")
         raise HTTPException(status_code=e.status_code, detail={"error": e.code, "message": e.message})
     except Exception as e:
+        logger.error(f"Stream extract failed for {video_id}: {e}", exc_info=True)
         raise HTTPException(
             status_code=502,
             detail={"error": "STREAM_EXTRACT_FAILED", "message": str(e)},
@@ -152,6 +156,7 @@ async def stream_audio_endpoint(
             upstream_resp = await client.send(req, stream=True)
 
         if upstream_resp.status_code not in (200, 206):
+            logger.error(f"Upstream stream returned {upstream_resp.status_code} for {video_id} on {upstream_url[:60]}")
             await upstream_resp.aclose()
             await client.aclose()
             raise HTTPException(
@@ -200,6 +205,7 @@ async def stream_audio_endpoint(
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Stream proxy failed for {video_id}: {e}", exc_info=True)
         await client.aclose()
         raise HTTPException(
             status_code=502,
