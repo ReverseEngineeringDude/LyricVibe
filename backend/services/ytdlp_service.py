@@ -1,4 +1,5 @@
 import asyncio
+import os
 import shutil
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Optional
@@ -38,6 +39,12 @@ def _get_ydl_base_opts() -> dict:
         "source_address": "0.0.0.0",  # Force IPv4 to prevent YouTube datacenter IPv6 blocks
         "geo_bypass": True,
         "geo_bypass_country": "SG",
+        "extractor_args": {
+            "youtube": {
+                # visionos bypasses YouTube datacenter bot challenges and returns direct progressive audio
+                "player_client": ["visionos"],
+            }
+        },
         "http_headers": {
             "User-Agent": (
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -55,13 +62,20 @@ def _get_ydl_base_opts() -> dict:
     if node_path:
         opts["js_runtimes"] = {"node": {"path": node_path}}
 
-    if YTDLP_COOKIES_FILE:
+    if YTDLP_COOKIES_FILE and os.path.exists(YTDLP_COOKIES_FILE):
         opts["cookiefile"] = YTDLP_COOKIES_FILE
+        opts["extractor_args"]["youtube"]["player_client"] = ["visionos", "web"]
     return opts
 
 
 def _classify_ytdlp_error(err_msg: str) -> TrackError:
     err_lower = err_msg.lower()
+    if "sign in to confirm you’re not a bot" in err_lower or "not a bot" in err_lower or "use --cookies" in err_lower:
+        return TrackError(
+            code="BOT_CHECK_BLOCKED",
+            message="YouTube bot verification triggered. Set YTDLP_COOKIES_TEXT in Render environment variables to bypass.",
+            status_code=403,
+        )
     if "sign in to confirm your age" in err_lower or "age-restricted" in err_lower:
         return TrackError(
             code="AGE_RESTRICTED",
@@ -159,11 +173,11 @@ def _sync_get_track_metadata(video_id: str) -> Dict[str, Any]:
                 info = ydl.extract_info(url, download=False)
             except Exception as first_err:
                 err_str = str(first_err).lower()
-                if "failed to extract any player response" in err_str:
+                if any(k in err_str for k in ["failed to extract", "bot", "player response", "requested format", "sign in"]):
                     fallback_opts = dict(opts)
                     fallback_opts["extractor_args"] = {
                         "youtube": {
-                            "player_client": ["mweb"],
+                            "player_client": ["android_vr", "mweb"],
                         }
                     }
                     with yt_dlp.YoutubeDL(fallback_opts) as fallback_ydl:
@@ -218,11 +232,11 @@ def _sync_extract_stream_url(video_id: str) -> Dict[str, Any]:
                 info = ydl.extract_info(url, download=False)
             except Exception as first_err:
                 err_str = str(first_err).lower()
-                if "failed to extract any player response" in err_str:
+                if any(k in err_str for k in ["failed to extract", "bot", "player response", "requested format", "sign in"]):
                     fallback_opts = dict(opts)
                     fallback_opts["extractor_args"] = {
                         "youtube": {
-                            "player_client": ["mweb"],
+                            "player_client": ["android_vr", "mweb"],
                         }
                     }
                     with yt_dlp.YoutubeDL(fallback_opts) as fallback_ydl:

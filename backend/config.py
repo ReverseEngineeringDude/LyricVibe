@@ -11,8 +11,18 @@ PROJECT_ROOT = BASE_DIR.parent
 HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", "8000"))
 
-# Optional cookies file for yt-dlp to bypass bot/sign-in challenges
+# Optional cookies file or cookies text for yt-dlp to bypass bot/sign-in challenges
 YTDLP_COOKIES_FILE = os.getenv("YTDLP_COOKIES_FILE", None)
+if not YTDLP_COOKIES_FILE:
+    cookies_content = os.getenv("YTDLP_COOKIES_TEXT") or os.getenv("YTDLP_COOKIES_CONTENT")
+    if cookies_content and cookies_content.strip():
+        cookie_path = Path("/tmp/yt_cookies.txt")
+        try:
+            cookie_path.write_text(cookies_content.strip())
+            YTDLP_COOKIES_FILE = str(cookie_path)
+        except Exception:
+            pass
+
 
 # Upload directory for fallback user audio
 UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", str(BASE_DIR / "uploads")))
