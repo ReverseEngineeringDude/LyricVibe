@@ -87,7 +87,7 @@ Render is ideal for FastAPI because it natively supports ASGI/Uvicorn, includes 
 2. Connect your GitHub repository `LyricVibe`.
 3. Fill in the service settings:
    - **Name**: `lyricvibe-backend`
-   - **Region**: Any (e.g. Oregon or Frankfurt)
+   - **Region**: **Singapore** (Recommended for streaming reliability)
    - **Branch**: `main`
    - **Language**: **Docker** (Render will automatically use the root `Dockerfile` with FFmpeg)
    - **Instance Type**: **Free**

@@ -3,7 +3,7 @@ services:
     name: lyricvibe-backend
     runtime: docker
     plan: free
-    region: oregon
+    region: singapore
     healthCheckPath: /api/health
     envVars:
       - key: PORT

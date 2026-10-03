@@ -1,16 +1,17 @@
 FROM python:3.11-slim
 
-# Install system packages: ffmpeg (for audio/video transcoding), curl, build tools
+# Install system packages: ffmpeg (for audio/video transcoding), curl, nodejs (JS runtime for yt-dlp)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     curl \
+    nodejs \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 # Install Python requirements
 COPY backend/requirements.txt requirements.txt
-RUN pip install --no-cache-dir --upgrade pip && \
+RUN pip install --no-cache-dir --upgrade pip yt-dlp && \
     pip install --no-cache-dir -r requirements.txt
 
 # Copy application source

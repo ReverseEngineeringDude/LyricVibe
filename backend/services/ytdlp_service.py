@@ -1,4 +1,5 @@
 import asyncio
+import shutil
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Optional
 import yt_dlp
@@ -34,7 +35,26 @@ def _get_ydl_base_opts() -> dict:
         "noplaylist": True,
         "socket_timeout": 15,
         "extract_flat": False,
+        "source_address": "0.0.0.0",  # Force IPv4 to prevent YouTube datacenter IPv6 blocks
+        "geo_bypass": True,
+        "geo_bypass_country": "SG",
+        "http_headers": {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/124.0.0.0 Safari/537.36"
+            ),
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Sec-Fetch-Mode": "navigate",
+        },
     }
+
+    # Automatically enable Node.js JS runtime if installed (for player response signature extraction)
+    node_path = shutil.which("node") or shutil.which("nodejs")
+    if node_path:
+        opts["js_runtimes"] = {"node": {"path": node_path}}
+
     if YTDLP_COOKIES_FILE:
         opts["cookiefile"] = YTDLP_COOKIES_FILE
     return opts
@@ -135,7 +155,22 @@ def _sync_get_track_metadata(video_id: str) -> Dict[str, Any]:
 
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
-            info = ydl.extract_info(url, download=False)
+            try:
+                info = ydl.extract_info(url, download=False)
+            except Exception as first_err:
+                err_str = str(first_err).lower()
+                if "failed to extract any player response" in err_str:
+                    fallback_opts = dict(opts)
+                    fallback_opts["extractor_args"] = {
+                        "youtube": {
+                            "player_client": ["mweb"],
+                        }
+                    }
+                    with yt_dlp.YoutubeDL(fallback_opts) as fallback_ydl:
+                        info = fallback_ydl.extract_info(url, download=False)
+                else:
+                    raise
+
             if not info:
                 raise TrackError(code="TRACK_NOT_FOUND", message="Video not found.", status_code=404)
 
@@ -179,7 +214,22 @@ def _sync_extract_stream_url(video_id: str) -> Dict[str, Any]:
 
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
-            info = ydl.extract_info(url, download=False)
+            try:
+                info = ydl.extract_info(url, download=False)
+            except Exception as first_err:
+                err_str = str(first_err).lower()
+                if "failed to extract any player response" in err_str:
+                    fallback_opts = dict(opts)
+                    fallback_opts["extractor_args"] = {
+                        "youtube": {
+                            "player_client": ["mweb"],
+                        }
+                    }
+                    with yt_dlp.YoutubeDL(fallback_opts) as fallback_ydl:
+                        info = fallback_ydl.extract_info(url, download=False)
+                else:
+                    raise
+
             if not info:
                 raise TrackError(code="TRACK_NOT_FOUND", message="Audio stream not found.", status_code=404)
 
