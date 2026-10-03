@@ -36,13 +36,14 @@ def _get_ydl_base_opts() -> dict:
         "noplaylist": True,
         "socket_timeout": 15,
         "extract_flat": False,
+        "ignore_no_formats_error": True,  # Prevent yt-dlp from failing on default format selector mismatch
         "source_address": "0.0.0.0",  # Force IPv4 to prevent YouTube datacenter IPv6 blocks
         "geo_bypass": True,
         "geo_bypass_country": "SG",
         "extractor_args": {
             "youtube": {
                 # visionos bypasses YouTube datacenter bot challenges and returns direct progressive audio
-                "player_client": ["visionos"],
+                "player_client": ["visionos", "android_vr"],
             }
         },
         "http_headers": {
@@ -70,6 +71,12 @@ def _get_ydl_base_opts() -> dict:
 
 def _classify_ytdlp_error(err_msg: str) -> TrackError:
     err_lower = err_msg.lower()
+    if "requested format is not available" in err_lower or "no formats" in err_lower:
+        return TrackError(
+            code="FORMAT_UNAVAILABLE",
+            message="The requested audio stream format is unavailable for this video.",
+            status_code=404,
+        )
     if "sign in to confirm you’re not a bot" in err_lower or "not a bot" in err_lower or "use --cookies" in err_lower:
         return TrackError(
             code="BOT_CHECK_BLOCKED",
