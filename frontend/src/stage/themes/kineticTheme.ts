@@ -91,7 +91,8 @@ export class KineticTheme implements StageTheme {
       if (duration) params.set('duration', duration.toString());
 
       const res = await fetch(`${API_BASE}/analysis/${videoId}?${params.toString()}`);
-      if (res.ok) {
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.toLowerCase().includes('application/json')) {
         const data: AudioAnalysisData = await res.json();
         this.analysisCache.set(videoId, data);
       }

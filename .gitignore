@@ -35,6 +35,8 @@ yarn-error.log*
 
 # Local environment files
 *.local
+.firebase/
+frontend/.firebase/
 frontend/.env.local
 frontend/.env.development.local
 frontend/.env.test.local

@@ -36,23 +36,58 @@ export interface LyricsResponse {
 const BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 export const API_BASE = `${BASE_URL}/api`;
 
+async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(url, init);
+  const contentType = res.headers.get('content-type') || '';
+  const isJson = contentType.toLowerCase().includes('application/json');
+
+  if (!res.ok) {
+    let errorMsg = `Request failed with status ${res.status}`;
+    if (isJson) {
+      try {
+        const errData = await res.json();
+        errorMsg = errData.message || errData.error || errorMsg;
+      } catch {
+        // Fallback to status message
+      }
+    } else {
+      const text = await res.text().catch(() => '');
+      if (text && text.length < 200 && !text.includes('<html') && !text.includes('<!DOCTYPE')) {
+        errorMsg = text;
+      }
+    }
+    throw new Error(errorMsg);
+  }
+
+  if (!isJson) {
+    const text = await res.text().catch(() => '');
+    const isHtml = text.trim().startsWith('<') || text.includes('<!DOCTYPE') || text.includes('<html');
+    if (isHtml) {
+      throw new Error(
+        `Received HTML instead of JSON from API. If deployed on Firebase, ensure VITE_API_BASE_URL is set to your live backend (e.g. https://<backend>.onrender.com).`
+      );
+    }
+    try {
+      return JSON.parse(text) as T;
+    } catch {
+      throw new Error(`Failed to parse response as JSON from ${url}`);
+    }
+  }
+
+  try {
+    return (await res.json()) as T;
+  } catch (err: any) {
+    throw new Error(`Failed to parse JSON response: ${err?.message || err}`);
+  }
+}
+
 export async function searchTracks(query: string): Promise<TrackMetadata[]> {
   if (!query.trim()) return [];
-  const res = await fetch(`${API_BASE}/search?q=${encodeURIComponent(query.trim())}`);
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.message || `Search failed with status ${res.status}`);
-  }
-  return res.json();
+  return fetchJson<TrackMetadata[]>(`${API_BASE}/search?q=${encodeURIComponent(query.trim())}`);
 }
 
 export async function getTrack(videoId: string): Promise<TrackMetadata> {
-  const res = await fetch(`${API_BASE}/track/${encodeURIComponent(videoId)}`);
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.message || `Failed to fetch track: ${res.status}`);
-  }
-  return res.json();
+  return fetchJson<TrackMetadata>(`${API_BASE}/track/${encodeURIComponent(videoId)}`);
 }
 
 export async function getLyrics(
@@ -68,36 +103,25 @@ export async function getLyrics(
     params.set('duration', Math.round(duration).toString());
   }
 
-  const res = await fetch(`${API_BASE}/lyrics?${params.toString()}`);
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.message || `Failed to fetch lyrics: ${res.status}`);
-  }
-  return res.json();
+  return fetchJson<LyricsResponse>(`${API_BASE}/lyrics?${params.toString()}`);
 }
 
 export async function searchLyrics(query: string): Promise<LyricCandidate[]> {
-  const res = await fetch(`${API_BASE}/lyrics/search?q=${encodeURIComponent(query.trim())}`);
-  if (!res.ok) {
+  try {
+    return await fetchJson<LyricCandidate[]>(`${API_BASE}/lyrics/search?q=${encodeURIComponent(query.trim())}`);
+  } catch {
     return [];
   }
-  return res.json();
 }
 
 export async function uploadAudio(file: File): Promise<TrackMetadata> {
   const formData = new FormData();
   formData.append('file', file);
 
-  const res = await fetch(`${API_BASE}/track/upload`, {
+  return fetchJson<TrackMetadata>(`${API_BASE}/track/upload`, {
     method: 'POST',
     body: formData,
   });
-
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.message || `Upload failed with status ${res.status}`);
-  }
-  return res.json();
 }
 
 export function getStreamUrl(videoId: string): string {

@@ -86,6 +86,12 @@ if FRONTEND_DIST.exists() and (FRONTEND_DIST / "index.html").exists():
 
     @app.get("/{full_path:path}")
     async def serve_frontend(full_path: str):
+        # Do not serve index.html for unmatched /api/ routes
+        if full_path.startswith("api/") or full_path == "api":
+            return JSONResponse(
+                status_code=404,
+                content={"error": "NOT_FOUND", "message": f"API endpoint '/{full_path}' not found."},
+            )
         file_path = FRONTEND_DIST / full_path
         if file_path.is_file():
             return FileResponse(file_path)
