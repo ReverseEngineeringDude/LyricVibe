@@ -65,12 +65,42 @@ Open `http://localhost:5173`. In development, Vite automatically proxies `/api` 
 ## 🚀 Deployment Guide
 
 This guide details how to deploy:
-- **Backend**: Hosted on [PythonAnywhere](https://www.pythonanywhere.com/) (WSGI with `a2wsgi` adapter)
+- **Backend**: Hosted on [Render](https://render.com/) (**Recommended** — native ASGI + FFmpeg + full outbound networking) or [PythonAnywhere](https://www.pythonanywhere.com/) (WSGI with `a2wsgi` adapter)
 - **Frontend**: Hosted on [Firebase Hosting](https://firebase.google.com/docs/hosting)
 
 ---
 
-### Part 1: Deploy Backend to PythonAnywhere
+### Option 1 (Recommended): Deploy Backend to Render
+
+Render is ideal for FastAPI because it natively supports ASGI/Uvicorn, includes full outbound networking (for YouTube streaming & lyrics retrieval), and supports Docker with FFmpeg pre-installed.
+
+#### Method A: Automatic Deployment using Render Blueprint (1-Click)
+1. Fork or push this repository to your GitHub account: `https://github.com/ReverseEngineeringDude/LyricVibe`.
+2. Log in to [Render Dashboard](https://dashboard.render.com/).
+3. Click **New +** in the top navigation bar and select **Blueprint**.
+4. Connect your GitHub repository `LyricVibe`.
+5. Render will automatically detect the [`render.yaml`](file:///home/red/Documents/Projects/lyrics/render.yaml) file, create the `lyricvibe-backend` web service, and deploy the Docker container.
+6. Once deployed, copy your service URL (e.g. `https://lyricvibe-backend.onrender.com`).
+
+#### Method B: Manual Web Service Setup on Render
+1. In [Render Dashboard](https://dashboard.render.com/), click **New +** -> **Web Service**.
+2. Connect your GitHub repository `LyricVibe`.
+3. Fill in the service settings:
+   - **Name**: `lyricvibe-backend`
+   - **Region**: Any (e.g. Oregon or Frankfurt)
+   - **Branch**: `main`
+   - **Language**: **Docker** (Render will automatically use the root `Dockerfile` with FFmpeg)
+   - **Instance Type**: **Free**
+4. Click **Create Web Service**.
+5. Test your live endpoint once deployed:
+   ```
+   https://<your-service-name>.onrender.com/api/health
+   ```
+   Response: `{"status":"ok","service":"LyricVibe"}`
+
+---
+
+### Option 2: Deploy Backend to PythonAnywhere
 
 PythonAnywhere natively serves Python web apps using the **WSGI** standard. Because FastAPI is an **ASGI** application, we use the `a2wsgi` adapter included in `backend/requirements.txt` to run FastAPI seamlessly.
 
