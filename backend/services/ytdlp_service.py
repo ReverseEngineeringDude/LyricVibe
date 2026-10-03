@@ -164,7 +164,6 @@ def _sync_search_tracks(query: str, limit: int = 10) -> List[Dict[str, Any]]:
 def _sync_get_track_metadata(video_id: str) -> Dict[str, Any]:
     url = f"https://www.youtube.com/watch?v={video_id}"
     opts = _get_ydl_base_opts()
-    opts["format"] = "bestaudio/best"
     opts["skip_download"] = True
 
     try:
@@ -177,7 +176,7 @@ def _sync_get_track_metadata(video_id: str) -> Dict[str, Any]:
                     fallback_opts = dict(opts)
                     fallback_opts["extractor_args"] = {
                         "youtube": {
-                            "player_client": ["android_vr", "mweb"],
+                            "player_client": ["android_vr", "visionos"],
                         }
                     }
                     with yt_dlp.YoutubeDL(fallback_opts) as fallback_ydl:
@@ -223,7 +222,6 @@ def _sync_get_track_metadata(video_id: str) -> Dict[str, Any]:
 def _sync_extract_stream_url(video_id: str) -> Dict[str, Any]:
     url = f"https://www.youtube.com/watch?v={video_id}"
     opts = _get_ydl_base_opts()
-    opts["format"] = "bestaudio/best"
     opts["skip_download"] = True
 
     try:
@@ -236,7 +234,7 @@ def _sync_extract_stream_url(video_id: str) -> Dict[str, Any]:
                     fallback_opts = dict(opts)
                     fallback_opts["extractor_args"] = {
                         "youtube": {
-                            "player_client": ["android_vr", "mweb"],
+                            "player_client": ["android_vr", "visionos"],
                         }
                     }
                     with yt_dlp.YoutubeDL(fallback_opts) as fallback_ydl:
@@ -247,7 +245,7 @@ def _sync_extract_stream_url(video_id: str) -> Dict[str, Any]:
             if not info:
                 raise TrackError(code="TRACK_NOT_FOUND", message="Audio stream not found.", status_code=404)
 
-            # Filter for true audio-only formats first (acodec != none, vcodec == none)
+            # Filter for true audio-only progressive formats first
             stream_url = None
             content_type = "audio/mp4"
             if "formats" in info:
@@ -259,6 +257,16 @@ def _sync_extract_stream_url(video_id: str) -> Dict[str, Any]:
                     and not f.get("url", "").endswith(".m3u8")
                     and "manifest.googlevideo.com" not in f.get("url", "")
                 ]
+                if not audio_formats:
+                    # Fallback to combined video+audio formats (e.g. format 18 mp4 360p)
+                    audio_formats = [
+                        f for f in info["formats"]
+                        if f.get("acodec") != "none"
+                        and f.get("url")
+                        and not f.get("url", "").endswith(".m3u8")
+                        and "manifest.googlevideo.com" not in f.get("url", "")
+                    ]
+
                 if audio_formats:
                     # Sort by audio bitrate (abr or tbr)
                     audio_formats.sort(key=lambda x: (x.get("abr") or x.get("tbr") or 0), reverse=True)
