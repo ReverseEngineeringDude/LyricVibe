@@ -181,22 +181,20 @@ def _sync_search_tracks(query: str, limit: int = 10) -> List[Dict[str, Any]]:
 def _sync_get_track_metadata(video_id: str) -> Dict[str, Any]:
     url = f"https://www.youtube.com/watch?v={video_id}"
 
-    client_candidates = [
-        ["-tv", "-tv_downgraded", "-tv_simply", "visionos", "android", "web_safari", "web_embedded"],
-        ["visionos"],
-        ["android"],
-        ["web_safari"],
-        ["web_embedded"],
-    ]
-
-    cookie_attempts = [True, False] if (YTDLP_COOKIES_FILE and os.path.exists(YTDLP_COOKIES_FILE)) else [False]
+    cookie_attempts = [False, True] if (YTDLP_COOKIES_FILE and os.path.exists(YTDLP_COOKIES_FILE)) else [False]
     last_error: Optional[Exception] = None
 
     for use_cookies in cookie_attempts:
         base_opts = _get_ydl_base_opts(use_cookies=use_cookies)
         base_opts["skip_download"] = True
 
-        for clients in client_candidates:
+        candidates = (
+            [["web_safari"], ["web_embedded"], ["mweb"], ["web"]]
+            if use_cookies
+            else [["visionos"], ["android"]]
+        )
+
+        for clients in candidates:
             opts = dict(base_opts)
             opts["extractor_args"] = {
                 "youtube": {
@@ -252,24 +250,20 @@ def _sync_get_track_metadata(video_id: str) -> Dict[str, Any]:
 def _sync_extract_stream_url(video_id: str) -> Dict[str, Any]:
     url = f"https://www.youtube.com/watch?v={video_id}"
 
-    # Sequential client candidates to bypass bot challenges and extract progressive audio
-    # -tv, -tv_downgraded, -tv_simply prevent YouTube's deprecated TV HTML5 endpoints from triggering 'The page needs to be reloaded'
-    client_candidates = [
-        ["-tv", "-tv_downgraded", "-tv_simply", "visionos", "android", "web_safari", "web_embedded"],
-        ["visionos"],
-        ["android"],
-        ["web_safari"],
-        ["web_embedded"],
-    ]
-
-    cookie_attempts = [True, False] if (YTDLP_COOKIES_FILE and os.path.exists(YTDLP_COOKIES_FILE)) else [False]
+    cookie_attempts = [False, True] if (YTDLP_COOKIES_FILE and os.path.exists(YTDLP_COOKIES_FILE)) else [False]
     last_error: Optional[Exception] = None
 
     for use_cookies in cookie_attempts:
         base_opts = _get_ydl_base_opts(use_cookies=use_cookies)
         base_opts["skip_download"] = True
 
-        for clients in client_candidates:
+        candidates = (
+            [["web_safari"], ["web_embedded"], ["mweb"], ["web"]]
+            if use_cookies
+            else [["visionos"], ["android"]]
+        )
+
+        for clients in candidates:
             opts = dict(base_opts)
             opts["extractor_args"] = {
                 "youtube": {

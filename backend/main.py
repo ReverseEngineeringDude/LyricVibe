@@ -85,11 +85,57 @@ async def health_check():
     return {
         "status": "ok",
         "service": "LyricVibe",
-        "build_tag": "2026-10-04-v3-resilient-clients",
+        "build_tag": "2026-10-04-v4-netscape-converter",
         "ytdlp_version": getattr(yt_dlp, "__version__", None) or getattr(getattr(yt_dlp, "version", None), "__version__", "unknown"),
         "has_cookies": has_cookies,
         "has_deno": bool(shutil.which("deno")),
         "has_node": bool(shutil.which("node") or shutil.which("nodejs")),
+    }
+
+
+@app.get("/api/debug/test-extract/{video_id}")
+async def debug_test_extract(video_id: str):
+    from backend.config import YTDLP_COOKIES_FILE
+    import yt_dlp
+    from pathlib import Path
+
+    cookies_info = "no cookies file"
+    if YTDLP_COOKIES_FILE and os.path.exists(YTDLP_COOKIES_FILE):
+        content = Path(YTDLP_COOKIES_FILE).read_text()
+        lines = [l for l in content.splitlines() if l.strip() and not l.startswith("#")]
+        cookies_info = f"size={len(content)}, valid_lines={len(lines)}"
+
+    results = {}
+    clients_to_test = [
+        ("visionos", False),
+        ("android", False),
+        ("web_safari", True),
+        ("web_embedded", True),
+        ("web", True),
+    ]
+    for client, wants_cookies in clients_to_test:
+        use_c = wants_cookies and bool(YTDLP_COOKIES_FILE and os.path.exists(YTDLP_COOKIES_FILE))
+        key = f"{client}_cookies_{use_c}"
+        opts = {
+            "quiet": True,
+            "skip_download": True,
+            "format": "all",
+            "extractor_args": {"youtube": {"player_client": [client]}},
+        }
+        if use_c:
+            opts["cookiefile"] = YTDLP_COOKIES_FILE
+        try:
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)
+                formats = info.get("formats", [])
+                audio = [f for f in formats if f.get("acodec") != "none" and f.get("url")]
+                results[key] = f"SUCCESS: {len(formats)} formats, {len(audio)} audio streams"
+        except Exception as e:
+            results[key] = f"ERROR: {str(e)[:180]}"
+
+    return {
+        "cookies_info": cookies_info,
+        "results": results,
     }
 
 
