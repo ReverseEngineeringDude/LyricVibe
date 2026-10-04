@@ -14,6 +14,8 @@ export class KineticTheme implements StageTheme {
   private grainCanvas: HTMLCanvasElement | null = null;
   private coverImage: HTMLImageElement | null = null;
   private currentCoverUrl = '';
+  private customBgImage: HTMLImageElement | null = null;
+  private currentCustomBgUrl = '';
 
   // Analysis & Phrase Cache
   private analysisCache = new Map<string, AudioAnalysisData>();
@@ -43,6 +45,7 @@ export class KineticTheme implements StageTheme {
   dispose() {
     this.grainCanvas = null;
     this.coverImage = null;
+    this.customBgImage = null;
     this.analysisCache.clear();
     this.phrasesCache.clear();
     this.layoutCache.clear();
@@ -76,6 +79,21 @@ export class KineticTheme implements StageTheme {
     img.crossOrigin = 'anonymous';
     img.onload = () => {
       this.coverImage = img;
+    };
+    img.src = url;
+  }
+
+  private updateCustomBgImage(url?: string | null) {
+    if (!url) {
+      this.customBgImage = null;
+      this.currentCustomBgUrl = '';
+      return;
+    }
+    if (url === this.currentCustomBgUrl) return;
+    this.currentCustomBgUrl = url;
+    const img = new Image();
+    img.onload = () => {
+      this.customBgImage = img;
     };
     img.src = url;
   }
@@ -154,6 +172,7 @@ export class KineticTheme implements StageTheme {
     if (track?.thumbnail && track.thumbnail !== this.currentCoverUrl) {
       this.updateCoverImage(track.thumbnail);
     }
+    this.updateCustomBgImage(visualOptions.customBgUrl);
 
     const kineticOpts: KineticOptions = {
       intensity: (visualOptions as any).kineticIntensity || 'balanced',
@@ -488,12 +507,22 @@ export class KineticTheme implements StageTheme {
     w: number,
     h: number,
     pal: ColorPalette,
-    style: 'mesh' | 'cover'
+    style: 'mesh' | 'cover' | 'custom'
   ) {
     ctx.fillStyle = pal.background || '#07080d';
     ctx.fillRect(0, 0, w, h);
 
-    if (style === 'cover' && this.coverImage) {
+    if (style === 'custom' && this.customBgImage) {
+      ctx.save();
+      const scale = Math.max(w / this.customBgImage.width, h / this.customBgImage.height);
+      const dw = this.customBgImage.width * scale;
+      const dh = this.customBgImage.height * scale;
+      const dx = (w - dw) / 2;
+      const dy = (h - dh) / 2;
+      ctx.globalAlpha = 0.55;
+      ctx.drawImage(this.customBgImage, dx, dy, dw, dh);
+      ctx.restore();
+    } else if (style === 'cover' && this.coverImage) {
       ctx.save();
       const scale = Math.max(w / this.coverImage.width, h / this.coverImage.height) * 1.15;
       const dw = this.coverImage.width * scale;

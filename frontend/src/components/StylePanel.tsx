@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { useSettingsStore, FontChoice, TextAlign, BackgroundStyle } from '@/store/useSettingsStore';
 import {
   Palette,
@@ -10,18 +10,70 @@ import {
   Sliders,
   ExternalLink,
   Zap,
+  Upload,
+  Trash2,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { OffsetControl } from './OffsetControl';
 
 export const StylePanel: React.FC = () => {
   const visualOptions = useSettingsStore((s) => s.visualOptions);
   const setVisualOptions = useSettingsStore((s) => s.setVisualOptions);
+  const setCustomBgImage = useSettingsStore((s) => s.setCustomBgImage);
   const toggleLyricPicker = useSettingsStore((s) => s.toggleLyricPicker);
   const candidates = useSettingsStore((s) => s.candidates);
   const isKineticMode = useSettingsStore((s) => s.isKineticMode);
   const toggleKineticMode = useSettingsStore((s) => s.toggleKineticMode);
   const kineticStyle = useSettingsStore((s) => s.kineticStyle);
   const setKineticStyle = useSettingsStore((s) => s.setKineticStyle);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    processAndSetImage(file);
+    e.target.value = '';
+  };
+
+  const processAndSetImage = (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      alert('Please upload an image file (PNG, JPG, WebP).');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target?.result as string;
+      if (!dataUrl) return;
+      const img = new Image();
+      img.onload = () => {
+        const maxDim = 1920;
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressed = canvas.toDataURL('image/jpeg', 0.85);
+          setCustomBgImage(compressed);
+        } else {
+          setCustomBgImage(dataUrl);
+        }
+      };
+      img.src = dataUrl;
+    };
+    reader.readAsDataURL(file);
+  };
 
   const fonts: { id: FontChoice; label: string; class: string }[] = [
     { id: 'Syne', label: 'Syne Bold', class: 'font-syne' },
@@ -200,9 +252,81 @@ export const StylePanel: React.FC = () => {
             >
               Cover
             </button>
+            <button
+              onClick={() => {
+                if (visualOptions.customBgUrl) {
+                  setVisualOptions({ backgroundStyle: 'custom' });
+                } else {
+                  fileInputRef.current?.click();
+                }
+              }}
+              className={`flex-1 py-1 rounded-lg transition-all ${
+                visualOptions.backgroundStyle === 'custom'
+                  ? 'bg-brand-500 text-white font-medium shadow-sm'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              Custom
+            </button>
           </div>
         </div>
       </div>
+
+      {/* Hidden file picker for custom wallpaper */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleFileChange}
+      />
+
+      {/* Custom Background Management Card */}
+      {visualOptions.customBgUrl ? (
+        <div className="p-2.5 rounded-xl bg-surfaceLight/50 border border-surfaceBorder/80 flex items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="relative w-10 h-10 rounded-lg overflow-hidden border border-white/20 shrink-0 bg-black/40">
+              <img
+                src={visualOptions.customBgUrl}
+                alt="Custom background preview"
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <div className="min-w-0">
+              <span className="text-[11px] font-semibold text-white block truncate">Custom Image</span>
+              <span className="text-[10px] text-gray-400 block truncate">
+                {visualOptions.backgroundStyle === 'custom' ? 'Active Wallpaper' : 'Ready to use'}
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="px-2 py-1 rounded-lg bg-surfaceLight hover:bg-surfaceLight/80 text-[10px] font-medium text-gray-200 border border-surfaceBorder hover:text-white transition-colors"
+              title="Upload different image"
+            >
+              Change
+            </button>
+            <button
+              onClick={() => setCustomBgImage(null)}
+              className="p-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 transition-colors"
+              title="Remove custom wallpaper"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      ) : (
+        visualOptions.backgroundStyle === 'custom' && (
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="w-full py-2 px-3 rounded-xl border border-dashed border-brand-500/50 hover:border-brand-400 bg-brand-500/10 hover:bg-brand-500/20 text-brand-300 hover:text-white flex items-center justify-center gap-2 transition-all group"
+          >
+            <Upload className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
+            <span className="text-[11px] font-medium">Select Image for Custom Background</span>
+          </button>
+        )
+      )}
 
       {/* Toggles: Film Grain & Watermark */}
       <div className="grid grid-cols-2 gap-3 pt-1">

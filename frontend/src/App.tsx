@@ -277,6 +277,90 @@ export const App: React.FC = () => {
         </div>
       )}
 
+      {/* Floating Glassmorphic Thumbnail Card (ONLY in Status Mode) */}
+      {isStatusMode && currentTrack && (
+        <div
+          onClick={(e) => {
+            e.stopPropagation();
+            togglePlay();
+          }}
+          className={`absolute bottom-5 left-5 sm:bottom-6 sm:left-6 z-40 cursor-pointer select-none transition-all duration-500 max-w-[calc(100vw-2.5rem)] sm:max-w-xs ${
+            showStatusControls
+              ? 'opacity-100 translate-y-0'
+              : 'opacity-55 hover:opacity-100 translate-y-1 hover:translate-y-0'
+          }`}
+          title={isPlaying ? 'Click to Pause' : 'Click to Play'}
+        >
+          <div className="relative group flex items-center gap-3 p-2.5 sm:p-3 rounded-2xl bg-white/[0.08] dark:bg-black/45 backdrop-blur-2xl border border-white/20 shadow-[0_8px_32px_0_rgba(0,0,0,0.45)] ring-1 ring-white/10 hover:bg-white/[0.12] dark:hover:bg-black/55 hover:border-white/30 transition-all duration-300">
+            {/* Ambient Glass Highlight Glow */}
+            <div className="absolute -inset-0.5 rounded-2xl bg-gradient-to-r from-brand-500/25 to-purple-500/25 opacity-30 group-hover:opacity-60 blur-md pointer-events-none transition-opacity" />
+
+            {/* Thumbnail with Glass Reflection & Glow */}
+            <div className="relative w-12 h-12 sm:w-14 sm:h-14 rounded-xl overflow-hidden shrink-0 shadow-lg border border-white/20 bg-black/50">
+              {currentTrack.thumbnail ? (
+                <img
+                  src={currentTrack.thumbnail}
+                  alt={currentTrack.track || currentTrack.title}
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-surfaceLight text-brand-400">
+                  <Sparkles className="w-5 h-5 fill-brand-400/20" />
+                </div>
+              )}
+              {/* Play/Pause Hover Overlay Icon */}
+              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white">
+                {isPlaying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current ml-0.5" />}
+              </div>
+              {/* Glass sheen highlight */}
+              <div className="absolute inset-0 bg-gradient-to-tr from-white/15 via-transparent to-transparent pointer-events-none" />
+            </div>
+
+            {/* Track Info & Equalizer */}
+            <div className="flex-1 min-w-0 pr-1">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs sm:text-sm font-bold text-white truncate block drop-shadow-sm">
+                  {currentTrack.track || currentTrack.title}
+                </span>
+                {/* Live Animated Equalizer Bars */}
+                <div className="flex items-end gap-0.5 h-3.5 px-0.5 shrink-0" title={isPlaying ? 'Playing' : 'Paused'}>
+                  <span
+                    className={`w-0.5 rounded-full bg-brand-400 transition-all duration-300 ${
+                      isPlaying ? 'animate-eqBar' : 'h-1.5 opacity-40'
+                    }`}
+                    style={{ animationDelay: '0ms' }}
+                  />
+                  <span
+                    className={`w-0.5 rounded-full bg-brand-400 transition-all duration-300 ${
+                      isPlaying ? 'animate-eqBar' : 'h-2.5 opacity-40'
+                    }`}
+                    style={{ animationDelay: '200ms' }}
+                  />
+                  <span
+                    className={`w-0.5 rounded-full bg-brand-400 transition-all duration-300 ${
+                      isPlaying ? 'animate-eqBar' : 'h-1.5 opacity-40'
+                    }`}
+                    style={{ animationDelay: '400ms' }}
+                  />
+                  <span
+                    className={`w-0.5 rounded-full bg-brand-400 transition-all duration-300 ${
+                      isPlaying ? 'animate-eqBar' : 'h-2 opacity-40'
+                    }`}
+                    style={{ animationDelay: '150ms' }}
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="text-[11px] text-gray-300/90 font-medium truncate block">
+                  {currentTrack.artist || 'Unknown Artist'}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 3. Main Stage Container */}
       <main className="flex-1 flex overflow-hidden relative">
         {/* Left Sidebar: Search & Discover (Desktop) */}
@@ -288,6 +372,17 @@ export const App: React.FC = () => {
 
         {/* Center: Stage (Takes full 100% in Status Mode) */}
         <section className="flex-1 h-full flex flex-col overflow-hidden relative">
+          {/* Ambient Glassmorphic Background Blur in Status Mode */}
+          {isStatusMode && currentTrack?.thumbnail && (
+            <div className="absolute inset-0 pointer-events-none overflow-hidden z-0 select-none">
+              <img
+                src={currentTrack.thumbnail}
+                alt=""
+                className="w-full h-full object-cover scale-125 blur-3xl opacity-25 saturate-150 transition-opacity duration-1000"
+              />
+              <div className="absolute inset-0 bg-black/40 backdrop-blur-[45px]" />
+            </div>
+          )}
           <Stage />
           <KineticOverlay visible={!isStatusMode || showStatusControls} />
         </section>

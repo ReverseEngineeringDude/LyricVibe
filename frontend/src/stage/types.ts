@@ -14,6 +14,7 @@ export interface StageState {
   palette: ColorPalette | null;
   prefersReducedMotion: boolean;
   isKineticMode?: boolean;
+  isStatusMode?: boolean;
   timingOffset?: number;
   width: number;
   height: number;

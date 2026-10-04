@@ -11,6 +11,8 @@ export class AestheticMoodTheme implements StageTheme {
   private grainPattern: CanvasPattern | null = null;
   private coverImage: HTMLImageElement | null = null;
   private currentCoverUrl = '';
+  private customBgImage: HTMLImageElement | null = null;
+  private currentCustomBgUrl = '';
 
   // Palette cross-fade state
   private activePalette: ColorPalette | null = null;
@@ -40,6 +42,7 @@ export class AestheticMoodTheme implements StageTheme {
     this.grainCanvas = null;
     this.grainPattern = null;
     this.coverImage = null;
+    this.customBgImage = null;
     this.lineSprings.clear();
     this.cachedLayouts = [];
   }
@@ -73,6 +76,21 @@ export class AestheticMoodTheme implements StageTheme {
     img.crossOrigin = 'anonymous';
     img.onload = () => {
       this.coverImage = img;
+    };
+    img.src = url;
+  }
+
+  private updateCustomBgImage(url?: string | null) {
+    if (!url) {
+      this.customBgImage = null;
+      this.currentCustomBgUrl = '';
+      return;
+    }
+    if (url === this.currentCustomBgUrl) return;
+    this.currentCustomBgUrl = url;
+    const img = new Image();
+    img.onload = () => {
+      this.customBgImage = img;
     };
     img.src = url;
   }
@@ -178,6 +196,7 @@ export class AestheticMoodTheme implements StageTheme {
     if (track?.thumbnail) {
       this.updateCoverImage(track.thumbnail);
     }
+    this.updateCustomBgImage(visualOptions.customBgUrl);
     this.updatePalette(palette, dt);
 
     // 1. Draw Dynamic Blurred Mesh Backdrop
@@ -191,8 +210,10 @@ export class AestheticMoodTheme implements StageTheme {
       this.drawGrain(ctx, width, height);
     }
 
-    // 4. Draw Header
-    this.drawHeader(ctx, state);
+    // 4. Draw Header (hidden in Status Mode where glassmorphic card is used)
+    if (!state.isStatusMode) {
+      this.drawHeader(ctx, state);
+    }
 
     // 5. Compute & Cache Text Layouts
     if (this.lastLayoutWidth !== width || this.cachedLayouts.length !== state.syncedLines.length) {
@@ -234,6 +255,21 @@ export class AestheticMoodTheme implements StageTheme {
     // Base background fill
     ctx.fillStyle = pal.background;
     ctx.fillRect(0, 0, w, h);
+
+    if (opts.backgroundStyle === 'custom' && this.customBgImage) {
+      ctx.save();
+      const scale = Math.max(w / this.customBgImage.width, h / this.customBgImage.height);
+      const dw = this.customBgImage.width * scale;
+      const dh = this.customBgImage.height * scale;
+      const dx = (w - dw) / 2;
+      const dy = (h - dh) / 2;
+      ctx.drawImage(this.customBgImage, dx, dy, dw, dh);
+      // Premium dark vignette overlay for lyric contrast and glassmorphic depth
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.48)';
+      ctx.fillRect(0, 0, w, h);
+      ctx.restore();
+      return;
+    }
 
     if (opts.backgroundStyle === 'cover' && this.coverImage) {
       ctx.save();

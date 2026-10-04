@@ -4,12 +4,13 @@ import { LyricCandidate } from '@/lib/api';
 
 export type FontChoice = 'Inter' | 'Playfair Display' | 'Syne';
 export type TextAlign = 'center' | 'left';
-export type BackgroundStyle = 'mesh' | 'cover';
+export type BackgroundStyle = 'mesh' | 'cover' | 'custom';
 
 export interface VisualOptions {
   font: FontChoice;
   alignment: TextAlign;
   backgroundStyle: BackgroundStyle;
+  customBgUrl?: string | null;
   grain: boolean;
   watermark: boolean;
   fps: 30 | 60;
@@ -63,6 +64,7 @@ interface SettingsState {
   loadTrackOffset: (trackId: string) => void;
   setIsLoadingLyrics: (loading: boolean) => void;
   setVisualOptions: (options: Partial<VisualOptions>) => void;
+  setCustomBgImage: (url: string | null) => void;
   setSelectedThemeId: (themeId: string) => void;
   toggleLyricPicker: (open?: boolean) => void;
   toggleClipPicker: (open?: boolean) => void;
@@ -75,6 +77,7 @@ interface SettingsState {
 
 const STORAGE_KEY_OFFSETS = 'lyricvibe_track_offsets';
 const STORAGE_KEY_VISUALS = 'lyricvibe_visual_options';
+const STORAGE_KEY_CUSTOM_BG = 'lyricvibe_custom_bg';
 
 function loadOffsets(): { [key: string]: number } {
   try {
@@ -95,11 +98,20 @@ function saveOffsetForTrack(trackId: string, offset: number) {
   }
 }
 
+function loadCustomBg(): string | null {
+  try {
+    return localStorage.getItem(STORAGE_KEY_CUSTOM_BG);
+  } catch {
+    return null;
+  }
+}
+
 function loadVisualOptions(): VisualOptions {
   const fallback: VisualOptions = {
     font: 'Syne',
     alignment: 'center',
     backgroundStyle: 'mesh',
+    customBgUrl: null,
     grain: true,
     watermark: true,
     fps: 60,
@@ -111,7 +123,19 @@ function loadVisualOptions(): VisualOptions {
   };
   try {
     const raw = localStorage.getItem(STORAGE_KEY_VISUALS);
-    return raw ? { ...fallback, ...JSON.parse(raw) } : fallback;
+    const parsed = raw ? JSON.parse(raw) : {};
+    const customBg = loadCustomBg();
+    return {
+      ...fallback,
+      ...parsed,
+      customBgUrl: customBg || parsed.customBgUrl || null,
+      backgroundStyle:
+        customBg && parsed.backgroundStyle === 'custom'
+          ? 'custom'
+          : parsed.backgroundStyle === 'custom' && !customBg
+          ? 'mesh'
+          : parsed.backgroundStyle || 'mesh',
+    };
   } catch {
     return fallback;
   }
@@ -180,6 +204,32 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 
   setVisualOptions: (options: Partial<VisualOptions>) => {
     const updated = { ...get().visualOptions, ...options };
+    try {
+      localStorage.setItem(STORAGE_KEY_VISUALS, JSON.stringify(updated));
+    } catch {}
+    set({ visualOptions: updated });
+  },
+
+  setCustomBgImage: (url: string | null) => {
+    try {
+      if (url) {
+        localStorage.setItem(STORAGE_KEY_CUSTOM_BG, url);
+      } else {
+        localStorage.removeItem(STORAGE_KEY_CUSTOM_BG);
+      }
+    } catch (e) {
+      console.warn('Storage error saving custom background:', e);
+    }
+    const current = get().visualOptions;
+    const updated: VisualOptions = {
+      ...current,
+      customBgUrl: url,
+      backgroundStyle: url
+        ? 'custom'
+        : current.backgroundStyle === 'custom'
+        ? 'mesh'
+        : current.backgroundStyle,
+    };
     try {
       localStorage.setItem(STORAGE_KEY_VISUALS, JSON.stringify(updated));
     } catch {}

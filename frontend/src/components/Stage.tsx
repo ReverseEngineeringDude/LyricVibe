@@ -38,6 +38,7 @@ export const Stage: React.FC = () => {
   const selectedThemeId = useSettingsStore((s) => s.selectedThemeId);
   const storyFramingMode = useSettingsStore((s) => s.storyFramingMode);
   const isKineticMode = useSettingsStore((s) => s.isKineticMode);
+  const isStatusMode = useSettingsStore((s) => s.isStatusMode);
   const setActiveLineIndex = useSettingsStore((s) => s.setActiveLineIndex);
 
   const [palette, setPalette] = useState<ColorPalette | null>(null);
@@ -102,6 +103,7 @@ export const Stage: React.FC = () => {
       track: currentTrack,
       palette,
       isKineticMode,
+      isStatusMode,
       timingOffset,
     });
   }, [
@@ -114,6 +116,7 @@ export const Stage: React.FC = () => {
     palette,
     selectedThemeId,
     isKineticMode,
+    isStatusMode,
     timingOffset,
   ]);
 
