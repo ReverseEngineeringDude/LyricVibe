@@ -85,11 +85,11 @@ export const App: React.FC = () => {
     <div
       onMouseMove={isStatusMode ? handleActivity : undefined}
       onTouchStart={isStatusMode ? handleActivity : undefined}
-      className="relative w-screen h-screen flex flex-col bg-background text-gray-100 overflow-hidden font-sans select-none"
+      className="relative w-screen h-screen h-[100dvh] flex flex-col bg-background text-gray-100 overflow-hidden font-sans select-none"
     >
       {/* 1. Normal Navigation Header (Hidden in Status Mode) */}
       {!isStatusMode && (
-        <header className="h-14 border-b border-surfaceBorder/60 bg-surface/80 backdrop-blur-xl px-4 flex items-center justify-between z-20 shrink-0">
+        <header className="h-14 pt-[env(safe-area-inset-top,0px)] border-b border-surfaceBorder/60 bg-surface/80 backdrop-blur-xl px-3 sm:px-4 flex items-center justify-between z-20 shrink-0">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-500 flex items-center justify-center text-white shadow-md shadow-brand-500/20">
@@ -202,7 +202,7 @@ export const App: React.FC = () => {
       {/* 2. Floating Minimal Control Bar (ONLY in Status Mode, auto-fades after 2.8s) */}
       {isStatusMode && (
         <div
-          className={`absolute top-4 left-1/2 -translate-x-1/2 z-50 transition-all duration-500 max-w-[95%] sm:max-w-none flex justify-center ${
+          className={`absolute top-[calc(1rem+env(safe-area-inset-top,0px))] left-1/2 -translate-x-1/2 z-50 transition-all duration-500 max-w-[95%] sm:max-w-none flex justify-center ${
             showStatusControls ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'
           }`}
         >

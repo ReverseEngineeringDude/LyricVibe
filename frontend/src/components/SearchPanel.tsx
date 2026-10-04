@@ -253,10 +253,10 @@ export const SearchPanel: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100">
+                <div className="flex items-center gap-1 shrink-0">
                   <button
                     onClick={() => addToQueue(track)}
-                    className="p-1.5 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-colors"
+                    className="w-8 h-8 flex items-center justify-center hover:bg-white/10 active:scale-90 rounded-lg text-gray-400 hover:text-white transition-all"
                     title="Add to Up Next"
                     aria-label="Add to Queue"
                   >
@@ -264,7 +264,7 @@ export const SearchPanel: React.FC = () => {
                   </button>
                   <button
                     onClick={() => playTrack(track)}
-                    className="p-1.5 hover:bg-brand-500/20 rounded-lg text-brand-400 transition-colors"
+                    className="w-8 h-8 flex items-center justify-center hover:bg-brand-500/20 active:scale-90 rounded-lg text-brand-400 transition-all"
                     title="Play Now"
                     aria-label="Play Now"
                   >

@@ -14,7 +14,12 @@ import {
 } from 'lucide-react';
 import { TrackMetadata } from '@/lib/api';
 
-export const Queue: React.FC = () => {
+export interface QueueProps {
+  embedded?: boolean;
+  onClose?: () => void;
+}
+
+export const Queue: React.FC<QueueProps> = ({ embedded = false, onClose }) => {
   const isOpen = useSettingsStore((s) => s.isQueueOpen);
   const toggleQueue = useSettingsStore((s) => s.toggleQueue);
 
@@ -30,7 +35,7 @@ export const Queue: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<'queue' | 'history' | 'favorites'>('queue');
 
-  if (!isOpen) return null;
+  if (!embedded && !isOpen) return null;
 
   const moveItem = (index: number, direction: 'up' | 'down') => {
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
@@ -55,20 +60,28 @@ export const Queue: React.FC = () => {
   const currentList = getList();
 
   return (
-    <div className="fixed inset-y-0 right-0 z-40 w-full sm:w-96 bg-surface/95 backdrop-blur-xl border-l border-surfaceBorder shadow-2xl flex flex-col animate-slide-left">
+    <div
+      className={
+        embedded
+          ? 'flex flex-col h-full bg-surface/90 backdrop-blur-md rounded-2xl border border-surfaceBorder overflow-hidden shadow-xl'
+          : 'fixed inset-y-0 right-0 z-40 w-full sm:w-96 bg-surface/95 backdrop-blur-xl border-l border-surfaceBorder shadow-2xl flex flex-col animate-slide-left'
+      }
+    >
       {/* Header */}
       <div className="p-4 border-b border-surfaceBorder flex items-center justify-between">
         <div className="flex items-center gap-2">
           <ListMusic className="w-5 h-5 text-brand-500" />
           <h2 className="font-semibold text-sm text-white">Playback Library</h2>
         </div>
-        <button
-          onClick={() => toggleQueue(false)}
-          className="p-1.5 text-gray-400 hover:text-white rounded-lg hover:bg-white/10 transition-colors"
-          aria-label="Close queue"
-        >
-          <X className="w-5 h-5" />
-        </button>
+        {(!embedded || onClose) && (
+          <button
+            onClick={() => (onClose ? onClose() : toggleQueue(false))}
+            className="p-1.5 text-gray-400 hover:text-white rounded-lg hover:bg-white/10 transition-colors"
+            aria-label="Close queue"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
       </div>
 
       {/* Tabs */}

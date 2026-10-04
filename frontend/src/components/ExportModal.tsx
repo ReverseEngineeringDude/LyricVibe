@@ -339,7 +339,7 @@ export const ExportModal: React.FC = () => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md animate-fade-in overflow-y-auto">
-      <div className="w-full max-w-xl bg-surface border border-surfaceBorder rounded-2xl p-5 sm:p-6 shadow-2xl space-y-5 my-auto">
+      <div className="w-full max-w-xl bg-surface border border-surfaceBorder rounded-2xl p-4 sm:p-6 shadow-2xl space-y-4 sm:space-y-5 my-auto max-h-[92dvh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-surfaceBorder/60 pb-3">
           <div className="flex items-center gap-2.5">
@@ -386,7 +386,7 @@ export const ExportModal: React.FC = () => {
             {/* Presets Grid */}
             <div className="space-y-2">
               <label className="text-xs font-medium text-gray-300">Aspect Ratio Preset</label>
-              <div className="grid grid-cols-3 gap-2.5">
+              <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
                 {PRESETS.map((p) => {
                   const Icon = p.icon;
                   const isSel = selectedPreset.id === p.id;
@@ -394,21 +394,21 @@ export const ExportModal: React.FC = () => {
                     <button
                       key={p.id}
                       onClick={() => setSelectedPreset(p)}
-                      className={`p-3 rounded-xl border text-left flex flex-col justify-between transition-all ${
+                      className={`p-2.5 sm:p-3 rounded-xl border text-left flex flex-col justify-between transition-all ${
                         isSel
                           ? 'bg-brand-500/15 border-brand-500/60 shadow-md shadow-brand-500/15 scale-101'
                           : 'bg-surfaceLight/30 border-surfaceBorder hover:border-surfaceBorder/90 hover:bg-surfaceLight/60'
                       }`}
                     >
-                      <div className="flex items-center justify-between w-full mb-2">
+                      <div className="flex items-center justify-between w-full mb-1.5">
                         <Icon className={`w-4 h-4 ${isSel ? 'text-brand-400' : 'text-gray-400'}`} />
-                        <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${isSel ? 'bg-brand-500/20 text-brand-300' : 'bg-surfaceBorder text-gray-400'}`}>
+                        <span className={`text-[10px] font-mono px-1 sm:px-1.5 py-0.5 rounded ${isSel ? 'bg-brand-500/20 text-brand-300' : 'bg-surfaceBorder text-gray-400'}`}>
                           {p.ratio}
                         </span>
                       </div>
-                      <div>
-                        <div className={`text-xs font-semibold ${isSel ? 'text-white' : 'text-gray-300'}`}>{p.name}</div>
-                        <div className="text-[10px] text-gray-500 mt-0.5">{p.width}&times;{p.height}</div>
+                      <div className="min-w-0">
+                        <div className={`text-[11px] sm:text-xs font-semibold truncate ${isSel ? 'text-white' : 'text-gray-300'}`}>{p.name}</div>
+                        <div className="text-[10px] text-gray-500 mt-0.5 font-mono">{p.width}&times;{p.height}</div>
                       </div>
                     </button>
                   );

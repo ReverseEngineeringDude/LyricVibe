@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Play, Pause, SkipForward, SkipBack } from 'lucide-react';
 import { usePlayerStore } from '@/store/usePlayerStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { extractPaletteFromImage, ColorPalette } from '@/lib/palette';
@@ -24,6 +26,7 @@ export const Stage: React.FC = () => {
   const currentTime = usePlayerStore((s) => s.currentTime);
   const duration = usePlayerStore((s) => s.duration);
   const isPlaying = usePlayerStore((s) => s.isPlaying);
+  const togglePlay = usePlayerStore((s) => s.togglePlay);
   const nextTrack = usePlayerStore((s) => s.nextTrack);
   const prevTrack = usePlayerStore((s) => s.prevTrack);
 
@@ -112,17 +115,52 @@ export const Stage: React.FC = () => {
     timingOffset,
   ]);
 
-  // Touch Swipe for mobile track navigation
+  // Mobile Touch Gestures & Visual Feedback
+  const [touchFeedback, setTouchFeedback] = useState<{
+    icon: 'play' | 'pause' | 'next' | 'prev';
+    key: number;
+  } | null>(null);
+  const feedbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const triggerFeedback = (icon: 'play' | 'pause' | 'next' | 'prev') => {
+    setTouchFeedback({ icon, key: Date.now() });
+    if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);
+    feedbackTimeoutRef.current = setTimeout(() => {
+      setTouchFeedback(null);
+    }, 600);
+  };
+
   const touchStartXRef = useRef<number>(0);
+  const touchStartYRef = useRef<number>(0);
+  const touchStartTimeRef = useRef<number>(0);
+
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartXRef.current = e.touches[0].clientX;
+    touchStartYRef.current = e.touches[0].clientY;
+    touchStartTimeRef.current = Date.now();
   };
+
   const handleTouchEnd = (e: React.TouchEvent) => {
     const deltaX = e.changedTouches[0].clientX - touchStartXRef.current;
-    if (deltaX < -70) {
-      nextTrack();
-    } else if (deltaX > 70) {
-      prevTrack();
+    const deltaY = e.changedTouches[0].clientY - touchStartYRef.current;
+    const elapsed = Date.now() - touchStartTimeRef.current;
+
+    // Horizontal Swipe Gesture (> 60px)
+    if (Math.abs(deltaX) > 60 && Math.abs(deltaX) > Math.abs(deltaY) * 1.3) {
+      if (deltaX < 0) {
+        nextTrack();
+        triggerFeedback('next');
+      } else {
+        prevTrack();
+        triggerFeedback('prev');
+      }
+      return;
+    }
+
+    // Quick Tap Gesture (< 250ms and < 15px movement) -> Toggle Play / Pause
+    if (elapsed < 250 && Math.abs(deltaX) < 15 && Math.abs(deltaY) < 15) {
+      togglePlay();
+      triggerFeedback(isPlaying ? 'pause' : 'play');
     }
   };
 
@@ -130,6 +168,10 @@ export const Stage: React.FC = () => {
     <div
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
+      onClick={() => {
+        togglePlay();
+        triggerFeedback(isPlaying ? 'pause' : 'play');
+      }}
       className={`relative w-full h-full flex items-center justify-center overflow-hidden transition-all duration-500 ${
         storyFramingMode
           ? 'max-w-[420px] max-h-[820px] aspect-[9/16] rounded-3xl border-2 border-brand-500/40 shadow-2xl mx-auto my-auto overflow-hidden'
@@ -141,6 +183,25 @@ export const Stage: React.FC = () => {
         className="w-full h-full block cursor-pointer select-none"
         aria-label="Lyric motion canvas stage"
       />
+
+      {/* Floating Gesture Feedback Icon */}
+      <AnimatePresence>
+        {touchFeedback && (
+          <motion.div
+            key={touchFeedback.key}
+            initial={{ opacity: 0, scale: 0.6 }}
+            animate={{ opacity: 1, scale: 1.15 }}
+            exit={{ opacity: 0, scale: 1.4 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+            className="absolute z-20 pointer-events-none w-16 h-16 rounded-full bg-black/65 backdrop-blur-xl border border-white/20 text-white flex items-center justify-center shadow-2xl shadow-brand-500/20"
+          >
+            {touchFeedback.icon === 'play' && <Play className="w-8 h-8 fill-current ml-1" />}
+            {touchFeedback.icon === 'pause' && <Pause className="w-8 h-8 fill-current" />}
+            {touchFeedback.icon === 'next' && <SkipForward className="w-8 h-8 fill-current" />}
+            {touchFeedback.icon === 'prev' && <SkipBack className="w-8 h-8 fill-current" />}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

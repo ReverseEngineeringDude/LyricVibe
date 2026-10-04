@@ -67,23 +67,67 @@ export const Player: React.FC = () => {
   const progressPercent = duration > 0 ? ((scrubTime ?? currentTime) / duration) * 100 : 0;
   const bufferedPercent = duration > 0 ? (bufferedTime / duration) * 100 : 0;
 
-  const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!progressBarRef.current || duration <= 0) return;
+  const calculateTimeFromClientX = (clientX: number) => {
+    if (!progressBarRef.current || duration <= 0) return 0;
     const rect = progressBarRef.current.getBoundingClientRect();
-    const clickX = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
-    const newTime = (clickX / rect.width) * duration;
+    const clickX = Math.max(0, Math.min(rect.width, clientX - rect.left));
+    return (clickX / rect.width) * duration;
+  };
+
+  const handleSeek = (clientX: number) => {
+    const newTime = calculateTimeFromClientX(clientX);
     seekTo(newTime);
   };
 
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     setIsScrubbing(true);
-    handleSeek(e);
+    const initialTime = calculateTimeFromClientX(e.clientX);
+    setScrubTime(initialTime);
+
+    const onMouseMove = (ev: MouseEvent) => {
+      const updatedTime = calculateTimeFromClientX(ev.clientX);
+      setScrubTime(updatedTime);
+    };
+
+    const onMouseUp = (ev: MouseEvent) => {
+      setIsScrubbing(false);
+      const finalTime = calculateTimeFromClientX(ev.clientX);
+      seekTo(finalTime);
+      setScrubTime(null);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    setIsScrubbing(true);
+    const touch = e.touches[0];
+    const initialTime = calculateTimeFromClientX(touch.clientX);
+    setScrubTime(initialTime);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (!isScrubbing) return;
+    const touch = e.touches[0];
+    const updatedTime = calculateTimeFromClientX(touch.clientX);
+    setScrubTime(updatedTime);
+  };
+
+  const handleTouchEnd = () => {
+    setIsScrubbing(false);
+    if (scrubTime !== null) {
+      seekTo(scrubTime);
+      setScrubTime(null);
+    }
   };
 
   return (
-    <div className="w-full bg-surface/95 backdrop-blur-xl border-t border-surfaceBorder px-2.5 sm:px-4 py-2 sm:py-3 select-none z-30">
+    <div className="w-full bg-surface/95 backdrop-blur-xl border-t border-surfaceBorder px-2.5 sm:px-4 pt-2 sm:pt-3 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] sm:pb-3 select-none z-30">
       <div className="max-w-7xl mx-auto flex flex-col gap-1.5 sm:gap-2">
-        {/* Seek Bar with Buffered Indicator */}
+        {/* Seek Bar with Buffered Indicator & Touch Scrubbing */}
         <div className="flex items-center gap-2 sm:gap-3">
           <span className="text-[10px] sm:text-[11px] font-mono text-gray-400 min-w-[32px] sm:min-w-[36px] text-right">
             {formatTime(scrubTime ?? currentTime)}
@@ -91,24 +135,38 @@ export const Player: React.FC = () => {
 
           <div
             ref={progressBarRef}
-            onClick={handleSeek}
+            onClick={(e) => handleSeek(e.clientX)}
             onMouseDown={handleMouseDown}
-            className="group relative flex-1 h-2 bg-surfaceLight rounded-full cursor-pointer overflow-hidden py-0.5"
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            className="group relative flex-1 h-6 flex items-center cursor-pointer touch-none select-none -my-1"
             role="slider"
             aria-valuenow={currentTime}
             aria-valuemin={0}
             aria-valuemax={duration}
             aria-label="Seek bar"
           >
-            {/* Buffered Bar */}
+            {/* Track container */}
+            <div className="relative w-full h-1.5 sm:h-2 bg-surfaceLight rounded-full overflow-hidden py-0.5">
+              {/* Buffered Bar */}
+              <div
+                className="absolute left-0 top-0 bottom-0 bg-surfaceBorder/80 rounded-full transition-all duration-300"
+                style={{ width: `${Math.min(100, bufferedPercent)}%` }}
+              />
+              {/* Played Progress Bar */}
+              <div
+                className="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-brand-600 to-brand-400 rounded-full transition-all"
+                style={{ width: `${Math.min(100, progressPercent)}%` }}
+              />
+            </div>
+
+            {/* Glowing Touch Scrub Thumb */}
             <div
-              className="absolute left-0 top-0 bottom-0 bg-surfaceBorder/80 rounded-full transition-all duration-300"
-              style={{ width: `${Math.min(100, bufferedPercent)}%` }}
-            />
-            {/* Played Progress Bar */}
-            <div
-              className="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-brand-600 to-brand-400 rounded-full transition-all"
-              style={{ width: `${Math.min(100, progressPercent)}%` }}
+              className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3.5 h-3.5 rounded-full bg-white shadow-md shadow-brand-500/50 border border-brand-400 pointer-events-none transition-transform ${
+                isScrubbing ? 'scale-125 ring-4 ring-brand-500/40' : 'scale-0 group-hover:scale-100 sm:group-hover:scale-100'
+              }`}
+              style={{ left: `${Math.min(100, Math.max(0, progressPercent))}%` }}
             />
           </div>
 
