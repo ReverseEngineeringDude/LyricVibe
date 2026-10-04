@@ -85,7 +85,7 @@ async def health_check():
     return {
         "status": "ok",
         "service": "LyricVibe",
-        "build_tag": "2026-10-04-v5-ejs-cookies",
+        "build_tag": "2026-10-04-v6-render-clean",
         "ytdlp_version": getattr(yt_dlp, "__version__", None) or getattr(getattr(yt_dlp, "version", None), "__version__", "unknown"),
         "has_cookies": has_cookies,
         "has_deno": bool(shutil.which("deno")),
@@ -122,7 +122,6 @@ async def debug_test_extract(video_id: str):
             "quiet": True,
             "skip_download": True,
             "format": "all",
-            "remote_components": ["ejs:github"],
             "extractor_args": {"youtube": {"player_client": [client]}},
         }
         if use_c:

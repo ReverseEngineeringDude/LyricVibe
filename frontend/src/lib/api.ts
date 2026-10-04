@@ -40,8 +40,8 @@ export function getApiBase(): string {
       return `${custom.trim().replace(/\/$/, '')}/api`;
     }
   }
-  const envBase = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
-  return envBase ? `${envBase}/api` : '/api';
+  const envBase = (import.meta.env.VITE_API_BASE_URL || 'https://lyricvibe-backend.onrender.com').replace(/\/$/, '');
+  return envBase ? `${envBase}/api` : 'https://lyricvibe-backend.onrender.com/api';
 }
 
 export function setCustomBackendUrl(url: string): void {
@@ -56,9 +56,9 @@ export function setCustomBackendUrl(url: string): void {
 
 export function getCustomBackendUrl(): string {
   if (typeof window !== 'undefined') {
-    return localStorage.getItem('lyricvibe_backend_url') || import.meta.env.VITE_API_BASE_URL || '';
+    return localStorage.getItem('lyricvibe_backend_url') || import.meta.env.VITE_API_BASE_URL || 'https://lyricvibe-backend.onrender.com';
   }
-  return import.meta.env.VITE_API_BASE_URL || '';
+  return import.meta.env.VITE_API_BASE_URL || 'https://lyricvibe-backend.onrender.com';
 }
 
 export const API_BASE = {

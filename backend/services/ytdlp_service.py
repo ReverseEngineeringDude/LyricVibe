@@ -83,8 +83,6 @@ def _get_ydl_base_opts(use_cookies: bool = True) -> dict:
     if use_cookies and YTDLP_COOKIES_FILE and os.path.exists(YTDLP_COOKIES_FILE):
         opts["cookiefile"] = YTDLP_COOKIES_FILE
 
-    # Enable EJS challenge solver for YouTube signature / cipher deciphering
-    opts["remote_components"] = ["ejs:github"]
     return opts
 
 
