@@ -79,6 +79,6 @@ export interface KineticOptions {
   intensity: 'calm' | 'balanced' | 'wild';
   cameraMovement: boolean;
   beatReactions: boolean;
-  backgroundType: 'mesh' | 'cover' | 'solid' | 'gradient';
+  backgroundType: 'mesh' | 'cover' | 'custom' | 'solid' | 'gradient';
   fontSet: 'modern' | 'classic' | 'cyber';
 }

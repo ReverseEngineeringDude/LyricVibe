@@ -41,8 +41,6 @@ export class AestheticMoodTheme implements StageTheme {
   dispose() {
     this.grainCanvas = null;
     this.grainPattern = null;
-    this.coverImage = null;
-    this.customBgImage = null;
     this.lineSprings.clear();
     this.cachedLayouts = [];
   }
@@ -70,7 +68,12 @@ export class AestheticMoodTheme implements StageTheme {
   }
 
   private updateCoverImage(url: string) {
-    if (!url || url === this.currentCoverUrl) return;
+    if (!url) {
+      this.coverImage = null;
+      this.currentCoverUrl = '';
+      return;
+    }
+    if (url === this.currentCoverUrl && this.coverImage && this.coverImage.complete) return;
     this.currentCoverUrl = url;
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -78,6 +81,9 @@ export class AestheticMoodTheme implements StageTheme {
       this.coverImage = img;
     };
     img.src = url;
+    if (img.complete && img.naturalWidth > 0) {
+      this.coverImage = img;
+    }
   }
 
   private updateCustomBgImage(url?: string | null) {
@@ -86,13 +92,19 @@ export class AestheticMoodTheme implements StageTheme {
       this.currentCustomBgUrl = '';
       return;
     }
-    if (url === this.currentCustomBgUrl) return;
+    if (url === this.currentCustomBgUrl && this.customBgImage && this.customBgImage.complete) return;
     this.currentCustomBgUrl = url;
     const img = new Image();
     img.onload = () => {
       this.customBgImage = img;
     };
+    img.onerror = () => {
+      console.warn('Failed to load custom background image:', url);
+    };
     img.src = url;
+    if (img.complete && img.naturalWidth > 0) {
+      this.customBgImage = img;
+    }
   }
 
   private updatePalette(newPalette: ColorPalette | null, dt: number) {

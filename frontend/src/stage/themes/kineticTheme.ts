@@ -44,8 +44,6 @@ export class KineticTheme implements StageTheme {
 
   dispose() {
     this.grainCanvas = null;
-    this.coverImage = null;
-    this.customBgImage = null;
     this.analysisCache.clear();
     this.phrasesCache.clear();
     this.layoutCache.clear();
@@ -73,7 +71,12 @@ export class KineticTheme implements StageTheme {
   }
 
   private updateCoverImage(url: string) {
-    if (!url || url === this.currentCoverUrl) return;
+    if (!url) {
+      this.coverImage = null;
+      this.currentCoverUrl = '';
+      return;
+    }
+    if (url === this.currentCoverUrl && this.coverImage && this.coverImage.complete) return;
     this.currentCoverUrl = url;
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -81,6 +84,9 @@ export class KineticTheme implements StageTheme {
       this.coverImage = img;
     };
     img.src = url;
+    if (img.complete && img.naturalWidth > 0) {
+      this.coverImage = img;
+    }
   }
 
   private updateCustomBgImage(url?: string | null) {
@@ -89,13 +95,19 @@ export class KineticTheme implements StageTheme {
       this.currentCustomBgUrl = '';
       return;
     }
-    if (url === this.currentCustomBgUrl) return;
+    if (url === this.currentCustomBgUrl && this.customBgImage && this.customBgImage.complete) return;
     this.currentCustomBgUrl = url;
     const img = new Image();
     img.onload = () => {
       this.customBgImage = img;
     };
+    img.onerror = () => {
+      console.warn('Failed to load custom background image:', url);
+    };
     img.src = url;
+    if (img.complete && img.naturalWidth > 0) {
+      this.customBgImage = img;
+    }
   }
 
   private async fetchAnalysis(videoId: string, trackTitle?: string, artist?: string, duration?: number) {
