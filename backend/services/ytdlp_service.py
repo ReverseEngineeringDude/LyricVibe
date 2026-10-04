@@ -8,6 +8,18 @@ import yt_dlp
 
 logger = logging.getLogger("ytdlp")
 
+# Ensure yt-dlp doesn't skip visionos and android clients when cookies are provided
+try:
+    from yt_dlp.extractor.youtube._base import INNERTUBE_CLIENTS
+    if "visionos" in INNERTUBE_CLIENTS:
+        INNERTUBE_CLIENTS["visionos"]["SUPPORTS_COOKIES"] = True
+    if "android" in INNERTUBE_CLIENTS:
+        INNERTUBE_CLIENTS["android"]["SUPPORTS_COOKIES"] = True
+    if "ios" in INNERTUBE_CLIENTS:
+        INNERTUBE_CLIENTS["ios"]["SUPPORTS_COOKIES"] = True
+except Exception:
+    pass
+
 from backend.config import YTDLP_COOKIES_FILE
 from backend.services.title_clean import parse_artist_title, clean_channel_name
 from backend.services.cache import (
@@ -181,18 +193,19 @@ def _sync_search_tracks(query: str, limit: int = 10) -> List[Dict[str, Any]]:
 def _sync_get_track_metadata(video_id: str) -> Dict[str, Any]:
     url = f"https://www.youtube.com/watch?v={video_id}"
 
-    cookie_attempts = [False, True] if (YTDLP_COOKIES_FILE and os.path.exists(YTDLP_COOKIES_FILE)) else [False]
+    candidates = [
+        ["visionos"],
+        ["android"],
+        ["web_safari"],
+        ["web_embedded"],
+    ]
+
+    cookie_attempts = [True, False] if (YTDLP_COOKIES_FILE and os.path.exists(YTDLP_COOKIES_FILE)) else [False]
     last_error: Optional[Exception] = None
 
     for use_cookies in cookie_attempts:
         base_opts = _get_ydl_base_opts(use_cookies=use_cookies)
         base_opts["skip_download"] = True
-
-        candidates = (
-            [["web_safari"], ["web_embedded"], ["mweb"], ["web"]]
-            if use_cookies
-            else [["visionos"], ["android"]]
-        )
 
         for clients in candidates:
             opts = dict(base_opts)
@@ -250,18 +263,19 @@ def _sync_get_track_metadata(video_id: str) -> Dict[str, Any]:
 def _sync_extract_stream_url(video_id: str) -> Dict[str, Any]:
     url = f"https://www.youtube.com/watch?v={video_id}"
 
-    cookie_attempts = [False, True] if (YTDLP_COOKIES_FILE and os.path.exists(YTDLP_COOKIES_FILE)) else [False]
+    candidates = [
+        ["visionos"],
+        ["android"],
+        ["web_safari"],
+        ["web_embedded"],
+    ]
+
+    cookie_attempts = [True, False] if (YTDLP_COOKIES_FILE and os.path.exists(YTDLP_COOKIES_FILE)) else [False]
     last_error: Optional[Exception] = None
 
     for use_cookies in cookie_attempts:
         base_opts = _get_ydl_base_opts(use_cookies=use_cookies)
         base_opts["skip_download"] = True
-
-        candidates = (
-            [["web_safari"], ["web_embedded"], ["mweb"], ["web"]]
-            if use_cookies
-            else [["visionos"], ["android"]]
-        )
 
         for clients in candidates:
             opts = dict(base_opts)
