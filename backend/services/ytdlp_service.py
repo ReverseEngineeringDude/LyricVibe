@@ -35,6 +35,7 @@ def _get_ydl_base_opts() -> dict:
         "no_warnings": True,
         "noplaylist": True,
         "socket_timeout": 15,
+        "format": "all",  # Prevent yt-dlp from failing with 'Requested format is not available'
         "extract_flat": False,
         "source_address": "0.0.0.0",  # Force IPv4 to prevent YouTube datacenter IPv6 blocks
         "geo_bypass": True,
@@ -173,9 +174,9 @@ def _sync_get_track_metadata(video_id: str) -> Dict[str, Any]:
 
     client_candidates = [
         ["visionos"],
+        ["tv_embedded"],
+        ["android_music"],
         ["android_vr"],
-        ["android"],
-        ["web"],
     ]
 
     last_error: Optional[Exception] = None
@@ -240,9 +241,9 @@ def _sync_extract_stream_url(video_id: str) -> Dict[str, Any]:
     # Sequential client candidates to bypass bot challenges and extract progressive audio
     client_candidates = [
         ["visionos"],
+        ["tv_embedded"],
+        ["android_music"],
         ["android_vr"],
-        ["android"],
-        ["web"],
     ]
 
     last_error: Optional[Exception] = None
