@@ -1,12 +1,18 @@
 FROM python:3.11-slim
 
-# Install system packages: ffmpeg (for audio/video transcoding), curl, nodejs (JS runtime for yt-dlp), git
+# Install system packages: ffmpeg (for audio/video transcoding), curl, nodejs, git, unzip
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     curl \
     nodejs \
     git \
+    unzip \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Deno (official preferred JavaScript runtime for yt-dlp signature solvers)
+RUN curl -fsSL https://deno.land/install.sh | bash -s -- -y \
+    && mv /root/.deno/bin/deno /usr/local/bin/deno \
+    && rm -rf /root/.deno
 
 WORKDIR /app
 

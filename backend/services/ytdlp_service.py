@@ -38,29 +38,23 @@ def _get_ydl_base_opts() -> dict:
         "format": "all",  # Prevent yt-dlp from failing with 'Requested format is not available'
         "extract_flat": False,
         "source_address": "0.0.0.0",  # Force IPv4 to prevent YouTube datacenter IPv6 blocks
-        "geo_bypass": True,
-        "geo_bypass_country": "SG",
         "extractor_args": {
             "youtube": {
                 "player_client": ["visionos"],
             }
         },
-        "http_headers": {
-            "User-Agent": (
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/124.0.0.0 Safari/537.36"
-            ),
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "en-US,en;q=0.9",
-            "Sec-Fetch-Mode": "navigate",
-        },
     }
 
-    # Automatically enable Node.js JS runtime if installed (for player response signature extraction)
+    # Automatically enable Deno or Node.js JS runtime if installed (for signature / cipher extraction)
+    deno_path = shutil.which("deno")
     node_path = shutil.which("node") or shutil.which("nodejs")
+    runtimes = {}
+    if deno_path:
+        runtimes["deno"] = {"path": deno_path}
     if node_path:
-        opts["js_runtimes"] = {"node": {"path": node_path}}
+        runtimes["node"] = {"path": node_path}
+    if runtimes:
+        opts["js_runtimes"] = runtimes
 
     if YTDLP_COOKIES_FILE and os.path.exists(YTDLP_COOKIES_FILE):
         opts["cookiefile"] = YTDLP_COOKIES_FILE
@@ -81,6 +75,12 @@ def _classify_ytdlp_error(err_msg: str) -> TrackError:
             code="BOT_CHECK_BLOCKED",
             message="YouTube bot verification triggered. Set YTDLP_COOKIES_TEXT in Render environment variables to bypass.",
             status_code=403,
+        )
+    if "the page needs to be reloaded" in err_lower or "reload" in err_lower:
+        return TrackError(
+            code="CLIENT_DEPRECATED",
+            message="YouTube client deprecated or session expired.",
+            status_code=502,
         )
     if "sign in to confirm your age" in err_lower or "age-restricted" in err_lower:
         return TrackError(
@@ -174,9 +174,9 @@ def _sync_get_track_metadata(video_id: str) -> Dict[str, Any]:
 
     client_candidates = [
         ["visionos"],
-        ["tv_embedded"],
         ["android_music"],
-        ["android_vr"],
+        ["android"],
+        ["mediaconnect"],
     ]
 
     last_error: Optional[Exception] = None
@@ -241,9 +241,9 @@ def _sync_extract_stream_url(video_id: str) -> Dict[str, Any]:
     # Sequential client candidates to bypass bot challenges and extract progressive audio
     client_candidates = [
         ["visionos"],
-        ["tv_embedded"],
         ["android_music"],
-        ["android_vr"],
+        ["android"],
+        ["mediaconnect"],
     ]
 
     last_error: Optional[Exception] = None
