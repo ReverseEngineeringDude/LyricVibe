@@ -37,7 +37,7 @@ export const BottomSheet: React.FC = () => {
       onDragEnd={handleDragEnd}
       animate={{ height: snapHeights[snap] }}
       transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-      className="md:hidden fixed bottom-[76px] left-0 right-0 z-30 bg-surface/95 backdrop-blur-2xl border-t border-surfaceBorder rounded-t-3xl shadow-2xl flex flex-col overflow-hidden"
+      className="lg:hidden fixed bottom-[72px] sm:bottom-[76px] left-0 right-0 z-30 bg-surface/95 backdrop-blur-2xl border-t border-surfaceBorder rounded-t-3xl shadow-2xl flex flex-col overflow-hidden"
     >
       {/* Drag handle header */}
       <div

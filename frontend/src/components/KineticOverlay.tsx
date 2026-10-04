@@ -2,7 +2,11 @@ import React from 'react';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { Zap, X, Sliders } from 'lucide-react';
 
-export const KineticOverlay: React.FC = () => {
+interface KineticOverlayProps {
+  visible?: boolean;
+}
+
+export const KineticOverlay: React.FC<KineticOverlayProps> = ({ visible = true }) => {
   const isKineticMode = useSettingsStore((s) => s.isKineticMode);
   const toggleKineticMode = useSettingsStore((s) => s.toggleKineticMode);
   const visualOptions = useSettingsStore((s) => s.visualOptions);
@@ -13,10 +17,14 @@ export const KineticOverlay: React.FC = () => {
   return (
     <div className="absolute inset-0 z-30 pointer-events-none flex flex-col justify-between overflow-hidden">
       {/* Extension-Style Floating Control Pill at top */}
-      <div className="pt-3 px-4 flex justify-between items-center pointer-events-auto">
-        <div className="flex items-center gap-2">
+      <div
+        className={`pt-3 px-3 sm:px-4 flex justify-between items-center transition-all duration-500 ${
+          visible ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 -translate-y-4 pointer-events-none'
+        }`}
+      >
+        <div className="flex items-center gap-1.5 sm:gap-2">
           {/* Animated Mode Badge */}
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/70 backdrop-blur-xl border border-amber-500/40 shadow-lg shadow-amber-500/10 text-xs font-semibold text-amber-300">
+          <div className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-black/70 backdrop-blur-xl border border-amber-500/40 shadow-lg shadow-amber-500/10 text-[11px] sm:text-xs font-semibold text-amber-300 shrink-0">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
               <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
@@ -46,7 +54,7 @@ export const KineticOverlay: React.FC = () => {
         {/* Exit Button */}
         <button
           onClick={() => toggleKineticMode(false)}
-          className="p-1.5 rounded-full bg-black/60 hover:bg-black/90 backdrop-blur-md border border-white/10 text-gray-300 hover:text-white transition-all shadow-md group"
+          className="p-1.5 rounded-full bg-black/60 hover:bg-black/90 backdrop-blur-md border border-white/10 text-gray-300 hover:text-white transition-all shadow-md group shrink-0"
           title="Exit Kinetic Mode (Esc or K)"
         >
           <X className="w-4 h-4 group-hover:scale-110 transition-transform" />

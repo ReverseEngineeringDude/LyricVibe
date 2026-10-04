@@ -202,27 +202,27 @@ export const App: React.FC = () => {
       {/* 2. Floating Minimal Control Bar (ONLY in Status Mode, auto-fades after 2.8s) */}
       {isStatusMode && (
         <div
-          className={`absolute top-4 left-1/2 -translate-x-1/2 z-50 transition-all duration-500 ${
+          className={`absolute top-4 left-1/2 -translate-x-1/2 z-50 transition-all duration-500 max-w-[95%] sm:max-w-none flex justify-center ${
             showStatusControls ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'
           }`}
         >
-          <div className="flex items-center gap-3 px-4 py-2 rounded-full bg-black/60 backdrop-blur-xl border border-white/15 text-xs text-gray-200 shadow-2xl">
+          <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 rounded-full bg-black/60 backdrop-blur-xl border border-white/15 text-xs text-gray-200 shadow-2xl max-w-full overflow-x-auto">
             {/* Exit Status Mode Button */}
             <button
               onClick={() => toggleStatusMode(false)}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 hover:bg-white/20 text-white font-medium transition-colors"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 hover:bg-white/20 text-white font-medium transition-colors shrink-0"
               title="Exit Status Mode (or press Esc)"
             >
               <EyeOff className="w-3.5 h-3.5 text-red-400" />
-              <span>Exit Status (Esc)</span>
+              <span>Exit<span className="hidden sm:inline"> Status (Esc)</span></span>
             </button>
 
-            <div className="h-4 w-px bg-white/20" />
+            <div className="h-4 w-px bg-white/20 shrink-0" />
 
             {/* Quick Playback Controls */}
             <button
               onClick={prevTrack}
-              className="p-1 hover:text-white text-gray-400 transition-colors"
+              className="p-1 hover:text-white text-gray-400 transition-colors shrink-0"
               title="Previous"
             >
               <SkipBack className="w-3.5 h-3.5 fill-current" />
@@ -230,7 +230,7 @@ export const App: React.FC = () => {
 
             <button
               onClick={togglePlay}
-              className="w-7 h-7 rounded-full bg-white text-black flex items-center justify-center hover:scale-105 active:scale-95 transition-transform"
+              className="w-7 h-7 rounded-full bg-white text-black flex items-center justify-center hover:scale-105 active:scale-95 transition-transform shrink-0"
               title={isPlaying ? 'Pause' : 'Play'}
             >
               {isPlaying ? <Pause className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current ml-0.5" />}
@@ -238,18 +238,18 @@ export const App: React.FC = () => {
 
             <button
               onClick={nextTrack}
-              className="p-1 hover:text-white text-gray-400 transition-colors"
+              className="p-1 hover:text-white text-gray-400 transition-colors shrink-0"
               title="Next"
             >
               <SkipForward className="w-3.5 h-3.5 fill-current" />
             </button>
 
-            <div className="h-4 w-px bg-white/20" />
+            <div className="h-4 w-px bg-white/20 shrink-0" />
 
             {/* Quick Kinetic Toggle in Status Bar */}
             <button
               onClick={() => toggleKineticMode()}
-              className={`p-1.5 rounded-lg border transition-colors ${
+              className={`p-1.5 rounded-lg border transition-colors shrink-0 ${
                 isKineticMode
                   ? 'bg-amber-500/25 border-amber-500 text-amber-300'
                   : 'bg-transparent border-white/10 text-gray-400 hover:text-white'
@@ -259,12 +259,12 @@ export const App: React.FC = () => {
               <Zap className="w-3.5 h-3.5" />
             </button>
 
-            <div className="h-4 w-px bg-white/20" />
+            <div className="h-4 w-px bg-white/20 shrink-0" />
 
             {/* 9:16 Vertical Story Framing Toggle */}
             <button
               onClick={toggleStoryFraming}
-              className={`p-1.5 rounded-lg border transition-colors ${
+              className={`p-1.5 rounded-lg border transition-colors shrink-0 ${
                 storyFramingMode
                   ? 'bg-brand-500/20 border-brand-500 text-brand-300'
                   : 'bg-transparent border-white/10 text-gray-400 hover:text-white'
@@ -289,7 +289,7 @@ export const App: React.FC = () => {
         {/* Center: Stage (Takes full 100% in Status Mode) */}
         <section className="flex-1 h-full flex flex-col overflow-hidden relative">
           <Stage />
-          <KineticOverlay />
+          <KineticOverlay visible={!isStatusMode || showStatusControls} />
         </section>
 
         {/* Right Sidebar: Style & Modes (Desktop) */}

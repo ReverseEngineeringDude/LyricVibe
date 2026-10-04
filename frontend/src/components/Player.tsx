@@ -81,11 +81,11 @@ export const Player: React.FC = () => {
   };
 
   return (
-    <div className="w-full bg-surface/95 backdrop-blur-xl border-t border-surfaceBorder px-4 py-3 select-none z-30">
-      <div className="max-w-7xl mx-auto flex flex-col gap-2">
+    <div className="w-full bg-surface/95 backdrop-blur-xl border-t border-surfaceBorder px-2.5 sm:px-4 py-2 sm:py-3 select-none z-30">
+      <div className="max-w-7xl mx-auto flex flex-col gap-1.5 sm:gap-2">
         {/* Seek Bar with Buffered Indicator */}
-        <div className="flex items-center gap-3">
-          <span className="text-[11px] font-mono text-gray-400 min-w-[36px] text-right">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <span className="text-[10px] sm:text-[11px] font-mono text-gray-400 min-w-[32px] sm:min-w-[36px] text-right">
             {formatTime(scrubTime ?? currentTime)}
           </span>
 
@@ -112,58 +112,58 @@ export const Player: React.FC = () => {
             />
           </div>
 
-          <span className="text-[11px] font-mono text-gray-400 min-w-[36px]">
+          <span className="text-[10px] sm:text-[11px] font-mono text-gray-400 min-w-[32px] sm:min-w-[36px]">
             {formatTime(duration)}
           </span>
         </div>
 
         {/* Player Controls Bar */}
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center justify-between gap-2 sm:gap-4">
           {/* Track Info */}
           {/* Left: Track Info */}
-          <div className="flex-1 min-w-0 max-w-[28%] flex items-center gap-3">
+          <div className="flex-1 min-w-0 max-w-[42%] sm:max-w-[30%] flex items-center gap-2 sm:gap-3">
             {currentTrack ? (
               <>
-                <div className="relative w-12 h-12 rounded-xl overflow-hidden shrink-0 bg-surfaceLight border border-surfaceBorder shadow-md">
+                <div className="relative w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl overflow-hidden shrink-0 bg-surfaceLight border border-surfaceBorder shadow-md">
                   {currentTrack.thumbnail ? (
                     <img src={currentTrack.thumbnail} alt={currentTrack.title} className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center bg-brand-500/20 text-brand-400">
-                      <Music className="w-5 h-5" />
+                      <Music className="w-4 h-4 sm:w-5 sm:h-5" />
                     </div>
                   )}
                 </div>
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <h4 className="text-xs sm:text-sm font-semibold text-white truncate">
                     {currentTrack.track || currentTrack.title}
                   </h4>
-                  <p className="text-[11px] text-gray-400 truncate">
+                  <p className="text-[10px] sm:text-[11px] text-gray-400 truncate">
                     {currentTrack.artist || currentTrack.uploader || 'Unknown Artist'}
                   </p>
                 </div>
                 <button
                   onClick={() => toggleFavorite(currentTrack)}
-                  className={`p-1.5 rounded-lg transition-colors ${
+                  className={`p-1 sm:p-1.5 rounded-lg transition-colors shrink-0 ${
                     isFavorite ? 'text-red-500 hover:text-red-400' : 'text-gray-400 hover:text-white'
                   }`}
                   aria-label="Toggle favorite"
                 >
-                  <Heart className={`w-4 h-4 ${isFavorite ? 'fill-current' : ''}`} />
+                  <Heart className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isFavorite ? 'fill-current' : ''}`} />
                 </button>
               </>
             ) : (
               <div className="flex items-center gap-2 text-gray-500 text-xs">
-                <Music className="w-4 h-4" />
-                <span>No track playing</span>
+                <Music className="w-4 h-4 shrink-0" />
+                <span className="truncate">No track playing</span>
               </div>
             )}
           </div>
 
           {/* Core Controls (shrink-0 prevents right tools from squeezing or overlapping) */}
-          <div className="shrink-0 flex items-center gap-2 sm:gap-3.5 justify-center px-1">
+          <div className="shrink-0 flex items-center gap-1 sm:gap-2.5 md:gap-3.5 justify-center px-1">
             <button
               onClick={toggleShuffle}
-              className={`p-2 rounded-lg transition-colors ${
+              className={`hidden sm:flex p-2 rounded-lg transition-colors ${
                 isShuffled ? 'text-brand-400' : 'text-gray-400 hover:text-white'
               }`}
               title="Shuffle"
@@ -174,35 +174,35 @@ export const Player: React.FC = () => {
 
             <button
               onClick={prevTrack}
-              className="p-2 text-gray-300 hover:text-white rounded-lg transition-colors hover:bg-white/5"
+              className="p-1.5 sm:p-2 text-gray-300 hover:text-white rounded-lg transition-colors hover:bg-white/5"
               title="Previous"
               aria-label="Previous track"
             >
-              <SkipBack className="w-5 h-5 fill-current" />
+              <SkipBack className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
             </button>
 
             <button
               onClick={togglePlay}
               disabled={!currentTrack}
-              className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white text-black hover:scale-105 active:scale-95 flex items-center justify-center shadow-lg transition-transform disabled:opacity-40"
+              className="w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-white text-black hover:scale-105 active:scale-95 flex items-center justify-center shadow-lg transition-transform disabled:opacity-40"
               title={isPlaying ? 'Pause' : 'Play'}
               aria-label={isPlaying ? 'Pause' : 'Play'}
             >
-              {isPlaying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current ml-0.5" />}
+              {isPlaying ? <Pause className="w-4 h-4 sm:w-5 sm:h-5 fill-current" /> : <Play className="w-4 h-4 sm:w-5 sm:h-5 fill-current ml-0.5" />}
             </button>
 
             <button
               onClick={nextTrack}
-              className="p-2 text-gray-300 hover:text-white rounded-lg transition-colors hover:bg-white/5"
+              className="p-1.5 sm:p-2 text-gray-300 hover:text-white rounded-lg transition-colors hover:bg-white/5"
               title="Next"
               aria-label="Next track"
             >
-              <SkipForward className="w-5 h-5 fill-current" />
+              <SkipForward className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
             </button>
 
             <button
               onClick={toggleRepeat}
-              className={`p-2 rounded-lg transition-colors ${
+              className={`hidden sm:flex p-2 rounded-lg transition-colors ${
                 repeatMode !== 'off' ? 'text-brand-400' : 'text-gray-400 hover:text-white'
               }`}
               title={`Repeat: ${repeatMode}`}
@@ -213,7 +213,7 @@ export const Player: React.FC = () => {
           </div>
 
           {/* Right Tools & Volume */}
-          <div className="flex-1 min-w-0 flex items-center justify-end gap-1.5 sm:gap-2">
+          <div className="flex-1 min-w-0 flex items-center justify-end gap-1 sm:gap-2">
             {/* Timing Offset Control (compact stepper in player bar) */}
             <div className="hidden lg:block shrink-0">
               <OffsetControl compact={true} />
@@ -236,7 +236,7 @@ export const Player: React.FC = () => {
             {/* Kinetic Typography Mode Toggle */}
             <button
               onClick={() => toggleKineticMode()}
-              className={`p-2 sm:px-2.5 sm:py-2 rounded-xl border text-xs font-medium flex items-center gap-1.5 transition-all shadow-sm shrink-0 ${
+              className={`hidden sm:flex p-2 sm:px-2.5 sm:py-2 rounded-xl border text-xs font-medium items-center gap-1.5 transition-all shadow-sm shrink-0 ${
                 isKineticMode
                   ? 'bg-gradient-to-r from-amber-500/25 to-brand-500/25 border-amber-500/50 text-amber-300 shadow-amber-500/10 scale-102 font-semibold'
                   : 'bg-surfaceLight/60 hover:bg-surfaceLight border-surfaceBorder text-gray-300 hover:text-white'
@@ -251,7 +251,7 @@ export const Player: React.FC = () => {
             {/* Status Mode Toggle (Clean Lyrics Only) */}
             <button
               onClick={() => toggleStatusMode(true)}
-              className="p-2 sm:px-2.5 sm:py-2 rounded-xl bg-surfaceLight/60 hover:bg-surfaceLight border border-surfaceBorder text-gray-300 hover:text-white text-xs font-medium flex items-center gap-1.5 transition-all shadow-sm shrink-0"
+              className="hidden sm:flex p-2 sm:px-2.5 sm:py-2 rounded-xl bg-surfaceLight/60 hover:bg-surfaceLight border border-surfaceBorder text-gray-300 hover:text-white text-xs font-medium items-center gap-1.5 transition-all shadow-sm shrink-0"
               title="Status Mode (Lyrics Only — Hotkey: 'S')"
               aria-label="Status Mode"
             >
@@ -263,10 +263,10 @@ export const Player: React.FC = () => {
             <button
               onClick={() => toggleClipPicker(true)}
               disabled={!currentTrack}
-              className="p-2 sm:px-2.5 sm:py-2 rounded-xl bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white text-xs font-medium flex items-center gap-1.5 shadow-md shadow-brand-500/20 disabled:opacity-40 transition-all hover:scale-102 shrink-0"
+              className="p-1.5 sm:p-2 sm:px-2.5 sm:py-2 rounded-xl bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white text-xs font-medium flex items-center gap-1.5 shadow-md shadow-brand-500/20 disabled:opacity-40 transition-all hover:scale-102 shrink-0"
               title="Export Story / Status Video"
             >
-              <Film className="w-4 h-4" />
+              <Film className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span className="hidden xl:inline">Export</span>
             </button>
 
@@ -294,7 +294,7 @@ export const Player: React.FC = () => {
             {/* Queue Toggle */}
             <button
               onClick={() => toggleQueue()}
-              className={`p-2 rounded-xl border transition-colors ${
+              className={`p-1.5 sm:p-2 rounded-xl border transition-colors shrink-0 ${
                 isQueueOpen
                   ? 'bg-brand-500/20 border-brand-500/50 text-brand-400'
                   : 'bg-surfaceLight/40 border-surfaceBorder text-gray-400 hover:text-white'
@@ -302,7 +302,7 @@ export const Player: React.FC = () => {
               title="Queue & Library"
               aria-label="Toggle queue"
             >
-              <ListMusic className="w-4 h-4" />
+              <ListMusic className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </button>
           </div>
         </div>
