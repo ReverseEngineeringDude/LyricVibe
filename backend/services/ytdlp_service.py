@@ -36,14 +36,12 @@ def _get_ydl_base_opts() -> dict:
         "noplaylist": True,
         "socket_timeout": 15,
         "extract_flat": False,
-        "ignore_no_formats_error": True,  # Prevent yt-dlp from failing on default format selector mismatch
         "source_address": "0.0.0.0",  # Force IPv4 to prevent YouTube datacenter IPv6 blocks
         "geo_bypass": True,
         "geo_bypass_country": "SG",
         "extractor_args": {
             "youtube": {
-                # visionos bypasses YouTube datacenter bot challenges and returns direct progressive audio
-                "player_client": ["visionos", "android_vr"],
+                "player_client": ["visionos"],
             }
         },
         "http_headers": {
@@ -170,139 +168,161 @@ def _sync_search_tracks(query: str, limit: int = 10) -> List[Dict[str, Any]]:
 
 def _sync_get_track_metadata(video_id: str) -> Dict[str, Any]:
     url = f"https://www.youtube.com/watch?v={video_id}"
-    opts = _get_ydl_base_opts()
-    opts["skip_download"] = True
+    base_opts = _get_ydl_base_opts()
+    base_opts["skip_download"] = True
 
-    try:
-        with yt_dlp.YoutubeDL(opts) as ydl:
-            try:
-                info = ydl.extract_info(url, download=False)
-            except Exception as first_err:
-                err_str = str(first_err).lower()
-                if any(k in err_str for k in ["failed to extract", "bot", "player response", "requested format", "sign in"]):
-                    fallback_opts = dict(opts)
-                    fallback_opts["extractor_args"] = {
-                        "youtube": {
-                            "player_client": ["android_vr", "visionos"],
-                        }
-                    }
-                    with yt_dlp.YoutubeDL(fallback_opts) as fallback_ydl:
-                        info = fallback_ydl.extract_info(url, download=False)
-                else:
-                    raise
+    client_candidates = [
+        ["visionos"],
+        ["android_vr"],
+        ["android"],
+        ["web"],
+    ]
 
-            if not info:
-                raise TrackError(code="TRACK_NOT_FOUND", message="Video not found.", status_code=404)
+    last_error: Optional[Exception] = None
 
-            if info.get("is_live"):
-                raise TrackError(
-                    code="LIVE_STREAM_UNSUPPORTED",
-                    message="Live stream audio is not supported.",
-                    status_code=400,
-                )
-
-            raw_title = info.get("title") or "Unknown Title"
-            channel = clean_channel_name(info.get("uploader") or info.get("channel") or "")
-            parsed = parse_artist_title(raw_title, channel)
-            duration = int(info.get("duration") or 0)
-
-            # Best thumbnail
-            thumbnail_url = info.get("thumbnail") or ""
-            if not thumbnail_url and video_id:
-                thumbnail_url = f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg"
-
-            return {
-                "id": video_id,
-                "title": raw_title,
-                "artist": parsed["artist"],
-                "track": parsed["track"],
-                "uploader": channel,
-                "duration": duration,
-                "thumbnail": thumbnail_url,
+    for clients in client_candidates:
+        opts = dict(base_opts)
+        opts["extractor_args"] = {
+            "youtube": {
+                "player_client": clients,
             }
-    except TrackError:
-        raise
-    except Exception as e:
-        raise _classify_ytdlp_error(str(e))
+        }
+
+        try:
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                info = ydl.extract_info(url, download=False)
+                if not info:
+                    continue
+
+                if info.get("is_live"):
+                    raise TrackError(
+                        code="LIVE_STREAM_UNSUPPORTED",
+                        message="Live stream audio is not supported.",
+                        status_code=400,
+                    )
+
+                raw_title = info.get("title") or "Unknown Title"
+                channel = clean_channel_name(info.get("uploader") or info.get("channel") or "")
+                parsed = parse_artist_title(raw_title, channel)
+                duration = int(info.get("duration") or 0)
+
+                # Best thumbnail
+                thumbnail_url = info.get("thumbnail") or ""
+                if not thumbnail_url and video_id:
+                    thumbnail_url = f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg"
+
+                return {
+                    "id": video_id,
+                    "title": raw_title,
+                    "artist": parsed["artist"],
+                    "track": parsed["track"],
+                    "uploader": channel,
+                    "duration": duration,
+                    "thumbnail": thumbnail_url,
+                }
+        except TrackError:
+            raise
+        except Exception as e:
+            last_error = e
+            continue
+
+    if last_error:
+        raise _classify_ytdlp_error(str(last_error))
+
+    raise TrackError(code="TRACK_NOT_FOUND", message="Video not found.", status_code=404)
 
 
 def _sync_extract_stream_url(video_id: str) -> Dict[str, Any]:
     url = f"https://www.youtube.com/watch?v={video_id}"
-    opts = _get_ydl_base_opts()
-    opts["skip_download"] = True
+    base_opts = _get_ydl_base_opts()
+    base_opts["skip_download"] = True
 
-    try:
-        with yt_dlp.YoutubeDL(opts) as ydl:
-            try:
+    # Sequential client candidates to bypass bot challenges and extract progressive audio
+    client_candidates = [
+        ["visionos"],
+        ["android_vr"],
+        ["android"],
+        ["web"],
+    ]
+
+    last_error: Optional[Exception] = None
+
+    for clients in client_candidates:
+        opts = dict(base_opts)
+        opts["extractor_args"] = {
+            "youtube": {
+                "player_client": clients,
+            }
+        }
+
+        try:
+            with yt_dlp.YoutubeDL(opts) as ydl:
                 info = ydl.extract_info(url, download=False)
-            except Exception as first_err:
-                err_str = str(first_err).lower()
-                if any(k in err_str for k in ["failed to extract", "bot", "player response", "requested format", "sign in"]):
-                    fallback_opts = dict(opts)
-                    fallback_opts["extractor_args"] = {
-                        "youtube": {
-                            "player_client": ["android_vr", "visionos"],
-                        }
-                    }
-                    with yt_dlp.YoutubeDL(fallback_opts) as fallback_ydl:
-                        info = fallback_ydl.extract_info(url, download=False)
-                else:
-                    raise
+                if not info:
+                    continue
 
-            if not info:
-                raise TrackError(code="TRACK_NOT_FOUND", message="Audio stream not found.", status_code=404)
+                if info.get("is_live"):
+                    raise TrackError(
+                        code="LIVE_STREAM_UNSUPPORTED",
+                        message="Live stream audio is not supported.",
+                        status_code=400,
+                    )
 
-            # Filter for true audio-only progressive formats first
-            stream_url = None
-            content_type = "audio/mp4"
-            format_headers = {}
-            if "formats" in info:
+                formats = info.get("formats", [])
+                if not formats:
+                    continue
+
+                # 1. Look for true audio-only progressive formats (m4a, webm/opus)
                 audio_formats = [
-                    f for f in info["formats"]
+                    f for f in formats
                     if f.get("acodec") != "none"
                     and (not f.get("vcodec") or f.get("vcodec") == "none")
                     and f.get("url")
                     and not f.get("url", "").endswith(".m3u8")
                     and "manifest.googlevideo.com" not in f.get("url", "")
                 ]
+
+                # 2. Fallback to combined video+audio formats (e.g. format 18 mp4 360p)
                 if not audio_formats:
-                    # Fallback to combined video+audio formats (e.g. format 18 mp4 360p)
                     audio_formats = [
-                        f for f in info["formats"]
+                        f for f in formats
                         if f.get("acodec") != "none"
                         and f.get("url")
                         and not f.get("url", "").endswith(".m3u8")
                         and "manifest.googlevideo.com" not in f.get("url", "")
                     ]
 
-                if audio_formats:
-                    # Sort by audio bitrate (abr or tbr)
-                    audio_formats.sort(key=lambda x: (x.get("abr") or x.get("tbr") or 0), reverse=True)
-                    best_audio = audio_formats[0]
-                    stream_url = best_audio.get("url")
-                    ext = best_audio.get("ext", "m4a")
-                    content_type = "audio/mp4" if ext == "m4a" else "audio/webm"
-                    format_headers = best_audio.get("http_headers") or {}
+                if not audio_formats:
+                    continue
 
-            # Fallback to direct url if formats filter didn't match
-            if not stream_url:
-                stream_url = info.get("url")
-                format_headers = info.get("http_headers") or {}
+                # Sort by audio bitrate (abr or tbr)
+                audio_formats.sort(key=lambda x: (x.get("abr") or x.get("tbr") or 0), reverse=True)
+                best_audio = audio_formats[0]
+                stream_url = best_audio.get("url")
+                if not stream_url:
+                    continue
 
-            if not stream_url:
-                raise TrackError(code="NO_AUDIO_STREAM", message="No playable audio stream found.", status_code=502)
+                ext = (best_audio.get("ext") or "m4a").lower()
+                content_type = "audio/mp4" if ext in ("m4a", "mp4") else "audio/webm"
+                format_headers = best_audio.get("http_headers") or info.get("http_headers") or {}
 
-            http_headers = format_headers or info.get("http_headers") or {}
-            return {
-                "stream_url": stream_url,
-                "headers": http_headers,
-                "content_type": content_type,
-                "duration": int(info.get("duration") or 0),
-            }
-    except TrackError:
-        raise
-    except Exception as e:
-        raise _classify_ytdlp_error(str(e))
+                return {
+                    "stream_url": stream_url,
+                    "headers": format_headers,
+                    "content_type": content_type,
+                    "duration": int(info.get("duration") or 0),
+                }
+
+        except TrackError:
+            raise
+        except Exception as e:
+            last_error = e
+            continue
+
+    if last_error:
+        raise _classify_ytdlp_error(str(last_error))
+
+    raise TrackError(code="NO_AUDIO_STREAM", message="No playable audio stream found.", status_code=502)
 
 
 async def search_tracks(query: str, limit: int = 10) -> List[Dict[str, Any]]:
