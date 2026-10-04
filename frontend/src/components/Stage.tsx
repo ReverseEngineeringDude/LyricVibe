@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Pause, SkipForward, SkipBack } from 'lucide-react';
+import { Play, Pause, SkipForward, SkipBack, Loader2 } from 'lucide-react';
 import { usePlayerStore } from '@/store/usePlayerStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { extractPaletteFromImage, ColorPalette } from '@/lib/palette';
@@ -26,6 +26,8 @@ export const Stage: React.FC = () => {
   const currentTime = usePlayerStore((s) => s.currentTime);
   const duration = usePlayerStore((s) => s.duration);
   const isPlaying = usePlayerStore((s) => s.isPlaying);
+  const isLoadingTrack = usePlayerStore((s) => s.isLoadingTrack);
+  const downloadProgress = usePlayerStore((s) => s.downloadProgress);
   const togglePlay = usePlayerStore((s) => s.togglePlay);
   const nextTrack = usePlayerStore((s) => s.nextTrack);
   const prevTrack = usePlayerStore((s) => s.prevTrack);
@@ -178,6 +180,33 @@ export const Stage: React.FC = () => {
           : 'flex-1'
       }`}
     >
+      {/* Downloading Audio Stream Floating Progress Toast */}
+      <AnimatePresence>
+        {isLoadingTrack && currentTrack && (
+          <motion.div
+            initial={{ opacity: 0, y: -25, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            transition={{ duration: 0.25 }}
+            className="absolute top-4 z-20 pointer-events-none px-4 py-2.5 rounded-2xl bg-black/80 backdrop-blur-2xl border border-amber-500/40 shadow-2xl flex flex-col gap-1.5 max-w-[88%] sm:max-w-md w-full"
+          >
+            <div className="flex items-center justify-between text-xs font-semibold text-white">
+              <span className="flex items-center gap-2 truncate">
+                <Loader2 className="w-3.5 h-3.5 text-amber-400 animate-spin shrink-0" />
+                <span className="truncate">Downloading "{currentTrack.track || currentTrack.title}"</span>
+              </span>
+              <span className="font-mono text-amber-400 font-bold ml-2 shrink-0">{Math.round(downloadProgress)}%</span>
+            </div>
+            <div className="w-full bg-surfaceLight/80 h-1.5 rounded-full overflow-hidden border border-white/5">
+              <div
+                className="bg-gradient-to-r from-amber-500 via-amber-400 to-brand-400 h-full rounded-full transition-all duration-300 shadow-sm shadow-amber-400/50"
+                style={{ width: `${Math.max(6, Math.min(100, downloadProgress))}%` }}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <canvas
         ref={canvasRef}
         className="w-full h-full block cursor-pointer select-none"

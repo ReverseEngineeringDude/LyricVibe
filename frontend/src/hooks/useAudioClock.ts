@@ -19,6 +19,8 @@ export function useAudioClock() {
   const volume = usePlayerStore((s) => s.volume);
   const isMuted = usePlayerStore((s) => s.isMuted);
   const setAudioClock = usePlayerStore((s) => s.setAudioClock);
+  const setDownloadProgress = usePlayerStore((s) => s.setDownloadProgress);
+  const setIsLoadingTrack = usePlayerStore((s) => s.setIsLoadingTrack);
   const nextTrack = usePlayerStore((s) => s.nextTrack);
   const setError = usePlayerStore((s) => s.setError);
 
@@ -55,13 +57,35 @@ export function useAudioClock() {
       setAudioClock(audio.currentTime, audio.duration || 0, 0);
     };
 
+    const handleLoadStart = () => {
+      setDownloadProgress(20, 'connecting');
+      setIsLoadingTrack(true);
+    };
+
+    const handleProgress = () => {
+      if (audio.buffered.length > 0 && audio.duration > 0) {
+        const bufferedEnd = audio.buffered.end(audio.buffered.length - 1);
+        const percent = Math.min(98, Math.max(35, (bufferedEnd / audio.duration) * 100));
+        setDownloadProgress(percent, 'downloading');
+      }
+    };
+
+    const handleWaiting = () => {
+      setIsLoadingTrack(true);
+      setDownloadProgress(80, 'downloading');
+    };
+
     const handleCanPlay = () => {
       clearActivePoll();
+      setDownloadProgress(100, 'ready');
+      setIsLoadingTrack(false);
       setError(null);
     };
 
     const handlePlaying = () => {
       clearActivePoll();
+      setDownloadProgress(100, 'ready');
+      setIsLoadingTrack(false);
       setError(null);
     };
 
@@ -160,6 +184,9 @@ export function useAudioClock() {
       }
     };
 
+    audio.addEventListener('loadstart', handleLoadStart);
+    audio.addEventListener('progress', handleProgress);
+    audio.addEventListener('waiting', handleWaiting);
     audio.addEventListener('timeupdate', handleTimeUpdate);
     audio.addEventListener('loadedmetadata', handleLoadedMetadata);
     audio.addEventListener('canplay', handleCanPlay);
@@ -185,6 +212,9 @@ export function useAudioClock() {
       clearActivePoll();
       if (rafId !== null) cancelAnimationFrame(rafId);
       audio.pause();
+      audio.removeEventListener('loadstart', handleLoadStart);
+      audio.removeEventListener('progress', handleProgress);
+      audio.removeEventListener('waiting', handleWaiting);
       audio.removeEventListener('timeupdate', handleTimeUpdate);
       audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
       audio.removeEventListener('canplay', handleCanPlay);
@@ -193,16 +223,33 @@ export function useAudioClock() {
       audio.removeEventListener('error', handleError);
       window.removeEventListener('lyricvibe:seek', handleCustomSeek);
     };
-  }, [setAudioClock, nextTrack, setError]);
+  }, [setAudioClock, nextTrack, setError, setDownloadProgress, setIsLoadingTrack]);
 
   // Handle Track Source Change & Fetch Synced Lyrics
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio || !currentTrack) return;
 
+    let isCancelled = false;
+
+    setDownloadProgress(14, 'connecting');
+    setIsLoadingTrack(true);
+
     const streamSrc = getStreamUrl(currentTrack.id);
     audio.src = streamSrc;
     audio.load();
+
+    let simProgress = 14;
+    const simInterval = setInterval(() => {
+      if (isCancelled || !audioRef.current || audioRef.current.src !== streamSrc) {
+        clearInterval(simInterval);
+        return;
+      }
+      if (simProgress < 85) {
+        simProgress += Math.random() * 8 + 4;
+        setDownloadProgress(Math.min(88, Math.round(simProgress)), 'downloading');
+      }
+    }, 450);
 
     if (isPlaying) {
       audio.play().catch(() => {
@@ -214,7 +261,6 @@ export function useAudioClock() {
     loadTrackOffset(currentTrack.id);
 
     // Fetch lyrics asynchronously
-    let isCancelled = false;
     setIsLoadingLyrics(true);
 
     getLyrics(currentTrack.track, currentTrack.artist, currentTrack.duration)
@@ -262,8 +308,9 @@ export function useAudioClock() {
 
     return () => {
       isCancelled = true;
+      clearInterval(simInterval);
     };
-  }, [currentTrack, loadTrackOffset, setIsLoadingLyrics, setLyricsData]);
+  }, [currentTrack, loadTrackOffset, setIsLoadingLyrics, setLyricsData, setDownloadProgress, setIsLoadingTrack]);
 
   // Handle Play / Pause
   useEffect(() => {

@@ -66,18 +66,23 @@ export function computePhraseLayout(
   ctx: CanvasRenderingContext2D,
   phrase: KineticPhrase,
   canvasWidth: number,
-  canvasHeight: number
+  canvasHeight: number,
+  intensity: 'calm' | 'balanced' | 'wild' = 'balanced'
 ): PhraseLayout {
   const isPortrait = canvasHeight > canvasWidth;
+  const isWild = intensity === 'wild';
+  const isCalm = intensity === 'calm';
 
-  // Safe area margins: 10% on portrait, 12% on landscape
-  const safeMarginX = canvasWidth * (isPortrait ? 0.09 : 0.12);
-  const safeMarginY = canvasHeight * (isPortrait ? 0.14 : 0.10);
+  // Safe area margins: generous on calm, standard on balanced, punchy on wild
+  const marginScale = isCalm ? 1.2 : isWild ? 0.85 : 1.0;
+  const safeMarginX = canvasWidth * (isPortrait ? 0.09 : 0.12) * marginScale;
+  const safeMarginY = canvasHeight * (isPortrait ? 0.14 : 0.10) * marginScale;
   const maxSafeWidth = canvasWidth - safeMarginX * 2;
   const maxSafeHeight = canvasHeight - safeMarginY * 2;
 
-  // Base font sizing reference
-  const baseSize = Math.max(24, Math.min(canvasWidth, canvasHeight) * 0.082);
+  // Base font sizing reference adapted by intensity
+  const sizeMult = isWild ? 1.28 : isCalm ? 0.84 : 1.0;
+  const baseSize = Math.max(20, Math.min(canvasWidth, canvasHeight) * 0.082 * sizeMult);
 
   const words = phrase.words;
   const template = phrase.template;
@@ -150,7 +155,7 @@ export function computePhraseLayout(
         fontFamily: font1,
         graphemes: seg1.graphemes,
         isSafeToSplit: seg1.isSafeToSplit,
-        rotation: -0.03,
+        rotation: isCalm ? 0 : isWild ? -0.09 : -0.03,
       });
 
       boxes.push({
@@ -163,7 +168,7 @@ export function computePhraseLayout(
         fontFamily: font2,
         graphemes: seg2.graphemes,
         isSafeToSplit: seg2.isSafeToSplit,
-        rotation: 0.03,
+        rotation: isCalm ? 0 : isWild ? 0.09 : 0.03,
       });
       break;
     }
@@ -280,7 +285,7 @@ export function computePhraseLayout(
           fontFamily: font,
           graphemes: seg.graphemes,
           isSafeToSplit: seg.isSafeToSplit,
-          rotation: (i % 2 === 0 ? 0.02 : -0.02),
+          rotation: isCalm ? 0 : isWild ? (i % 2 === 0 ? 0.08 : -0.08) : (i % 2 === 0 ? 0.025 : -0.025),
         });
 
         curY += rowHeight;

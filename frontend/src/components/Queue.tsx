@@ -11,6 +11,7 @@ import {
   ChevronUp,
   ChevronDown,
   Volume2,
+  Loader2,
 } from 'lucide-react';
 import { TrackMetadata } from '@/lib/api';
 
@@ -28,6 +29,8 @@ export const Queue: React.FC<QueueProps> = ({ embedded = false, onClose }) => {
   const favorites = usePlayerStore((s) => s.favorites);
   const currentTrack = usePlayerStore((s) => s.currentTrack);
   const isPlaying = usePlayerStore((s) => s.isPlaying);
+  const isLoadingTrack = usePlayerStore((s) => s.isLoadingTrack);
+  const downloadProgress = usePlayerStore((s) => s.downloadProgress);
   const playTrack = usePlayerStore((s) => s.playTrack);
   const removeFromQueue = usePlayerStore((s) => s.removeFromQueue);
   const reorderQueue = usePlayerStore((s) => s.reorderQueue);
@@ -132,50 +135,63 @@ export const Queue: React.FC<QueueProps> = ({ embedded = false, onClose }) => {
         ) : (
           currentList.map((track, idx) => {
             const isCurrent = currentTrack?.id === track.id;
+            const isDownloading = isCurrent && isLoadingTrack;
             return (
               <div
                 key={`${track.id}-${idx}`}
-                className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${
+                className={`flex flex-col p-2.5 rounded-xl border transition-all ${
                   isCurrent
                     ? 'bg-brand-500/10 border-brand-500/40 text-white'
                     : 'bg-surfaceLight/30 border-surfaceBorder/40 hover:bg-surfaceLight/60 hover:border-surfaceBorder'
                 }`}
               >
-                <div
-                  className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer"
-                  onClick={() => playTrack(track)}
-                >
-                  <div className="relative w-10 h-10 rounded-lg overflow-hidden shrink-0 bg-surfaceBorder">
-                    {track.thumbnail ? (
-                      <img src={track.thumbnail} alt={track.title} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-brand-500/20 text-brand-400 text-xs">
-                        ♪
-                      </div>
-                    )}
+                <div className="flex items-center justify-between">
+                  <div
+                    className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer"
+                    onClick={() => playTrack(track)}
+                  >
+                    <div className="relative w-10 h-10 rounded-lg overflow-hidden shrink-0 bg-surfaceBorder">
+                      {track.thumbnail ? (
+                        <img src={track.thumbnail} alt={track.title} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-brand-500/20 text-brand-400 text-xs">
+                          ♪
+                        </div>
+                      )}
 
-                    {isCurrent && isPlaying ? (
-                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center gap-0.5">
-                        <span className="w-1 bg-brand-400 rounded-full animate-eqBar" style={{ animationDelay: '0ms' }} />
-                        <span className="w-1 bg-brand-400 rounded-full animate-eqBar" style={{ animationDelay: '200ms' }} />
-                        <span className="w-1 bg-brand-400 rounded-full animate-eqBar" style={{ animationDelay: '400ms' }} />
-                      </div>
-                    ) : (
-                      <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 flex items-center justify-center">
-                        <Play className="w-3.5 h-3.5 fill-white text-white" />
-                      </div>
-                    )}
-                  </div>
+                      {isDownloading ? (
+                        <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                          <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
+                        </div>
+                      ) : isCurrent && isPlaying ? (
+                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center gap-0.5">
+                          <span className="w-1 bg-brand-400 rounded-full animate-eqBar" style={{ animationDelay: '0ms' }} />
+                          <span className="w-1 bg-brand-400 rounded-full animate-eqBar" style={{ animationDelay: '200ms' }} />
+                          <span className="w-1 bg-brand-400 rounded-full animate-eqBar" style={{ animationDelay: '400ms' }} />
+                        </div>
+                      ) : (
+                        <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 flex items-center justify-center">
+                          <Play className="w-3.5 h-3.5 fill-white text-white" />
+                        </div>
+                      )}
+                    </div>
 
-                  <div className="min-w-0 flex-1">
-                    <p className={`text-xs font-semibold truncate ${isCurrent ? 'text-brand-400' : 'text-gray-200'}`}>
-                      {track.track || track.title}
-                    </p>
-                    <p className="text-[11px] text-gray-400 truncate">
-                      {track.artist || track.channel || 'Unknown Artist'}
-                    </p>
+                    <div className="min-w-0 flex-1">
+                      <p className={`text-xs font-semibold truncate ${isCurrent ? 'text-brand-400' : 'text-gray-200'}`}>
+                        {track.track || track.title}
+                      </p>
+                      <p className="text-[11px] text-gray-400 truncate flex items-center gap-1.5">
+                        {isDownloading ? (
+                          <span className="text-amber-400 font-medium flex items-center gap-1">
+                            <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                            Downloading {Math.round(downloadProgress)}%
+                          </span>
+                        ) : (
+                          <span>{track.artist || track.channel || 'Unknown Artist'}</span>
+                        )}
+                      </p>
+                    </div>
                   </div>
-                </div>
 
                 {/* Queue controls */}
                 {activeTab === 'queue' && (
@@ -206,6 +222,17 @@ export const Queue: React.FC<QueueProps> = ({ embedded = false, onClose }) => {
                   </div>
                 )}
               </div>
+
+              {/* Progress bar informing user of downloading progress */}
+              {isDownloading && (
+                <div className="w-full bg-surfaceLight/80 h-1.5 rounded-full overflow-hidden mt-2 border border-white/5">
+                  <div
+                    className="bg-gradient-to-r from-amber-500 via-amber-400 to-brand-400 h-full rounded-full transition-all duration-300 shadow-sm shadow-amber-400/50"
+                    style={{ width: `${Math.max(6, Math.min(100, downloadProgress))}%` }}
+                  />
+                </div>
+              )}
+            </div>
             );
           })
         )}

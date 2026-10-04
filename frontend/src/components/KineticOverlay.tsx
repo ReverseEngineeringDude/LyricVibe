@@ -33,13 +33,13 @@ export const KineticOverlay: React.FC<KineticOverlayProps> = ({ visible = true }
             <span className="tracking-wide">KINETIC MODE</span>
           </div>
 
-          {/* Intensity selector pill */}
-          <div className="hidden sm:flex items-center bg-black/60 backdrop-blur-md p-0.5 rounded-full border border-white/10 text-[11px]">
+          {/* Intensity selector pill - visible on mobile and desktop */}
+          <div className="flex items-center bg-black/60 backdrop-blur-md p-0.5 rounded-full border border-white/10 text-[10px] sm:text-[11px]">
             {(['calm', 'balanced', 'wild'] as const).map((intensity) => (
               <button
                 key={intensity}
                 onClick={() => setVisualOptions({ kineticIntensity: intensity })}
-                className={`px-2.5 py-0.5 rounded-full transition-all font-medium capitalize ${
+                className={`px-2 sm:px-2.5 py-0.5 rounded-full transition-all font-medium capitalize ${
                   (visualOptions.kineticIntensity || 'balanced') === intensity
                     ? 'bg-amber-500 text-black font-bold shadow-md shadow-amber-500/20'
                     : 'text-gray-300 hover:text-white'

@@ -64,52 +64,64 @@ export function getCameraAtTime(
   let camScale = 1.0;
   let camRot = 0;
   let punchScale = 1.0;
+  let shakeX = 0;
+  let shakeY = 0;
 
-  const intensityMult =
-    options.intensity === 'wild' ? 1.4 : options.intensity === 'calm' ? 0.35 : 1.0;
+  const isWild = options.intensity === 'wild';
+  const isCalm = options.intensity === 'calm';
 
-  // 1. Subtle musical beat cushion (max 1.015 scale, smooth exponential decay, no jitter)
+  // 1. Musical beat cushion & recoil
   if (options.beatReactions && !prefersReducedMotion && analysis) {
     const energy = getEnergyAtTime(analysis, t);
     const lastBeat = findPriorTimestamp(analysis.beats, t);
     if (lastBeat !== null) {
       const dtBeat = t - lastBeat;
-      if (dtBeat >= 0 && dtBeat <= 0.18) {
-        const decay = Math.exp(-dtBeat * 16);
-        punchScale += 0.015 * decay * (0.6 + 0.4 * energy) * intensityMult;
+      if (dtBeat >= 0 && dtBeat <= 0.22) {
+        const decay = Math.exp(-dtBeat * (isWild ? 14 : isCalm ? 20 : 16));
+        const beatPower = isWild ? 0.055 : isCalm ? 0.008 : 0.022;
+        punchScale += beatPower * decay * (0.5 + 0.5 * energy);
+
+        // Tactile micro-shake on beat impact in Wild mode
+        if (isWild && dtBeat <= 0.12) {
+          const shakeFactor = (1.0 - dtBeat / 0.12) * energy * 4.5;
+          shakeX = Math.sin(t * 90) * shakeFactor;
+          shakeY = Math.cos(t * 80) * shakeFactor;
+        }
       }
     }
   }
 
-  // 2. Continuous serene floating camera drift
+  // 2. Camera drift motion
   if (options.cameraMovement && !prefersReducedMotion) {
-    const dMag = 5.0 * intensityMult;
-    const rMag = 0.005 * intensityMult;
-    camX += (Math.sin(t * 0.35) * 0.7 + Math.sin(t * 0.8) * 0.3) * dMag;
-    camY += (Math.cos(t * 0.28) * 0.7 + Math.sin(t * 0.65) * 0.3) * dMag;
-    camRot += Math.sin(t * 0.22) * rMag;
+    const dMag = isWild ? 16.0 : isCalm ? 1.8 : 6.0;
+    const rMag = isWild ? 0.028 : isCalm ? 0.001 : 0.007;
+    const driftSpeed = isWild ? 1.8 : isCalm ? 0.5 : 1.0;
+
+    camX += (Math.sin(t * 0.35 * driftSpeed) * 0.7 + Math.sin(t * 0.8 * driftSpeed) * 0.3) * dMag;
+    camY += (Math.cos(t * 0.28 * driftSpeed) * 0.7 + Math.sin(t * 0.65 * driftSpeed) * 0.3) * dMag;
+    camRot += Math.sin(t * 0.22 * driftSpeed) * rMag;
   }
 
   // 3. Smooth phrase transition camera breathe
   if (activePhrase && nextPhrase && options.cameraMovement && !prefersReducedMotion) {
-    const transWindow = 0.5;
+    const transWindow = isWild ? 0.35 : isCalm ? 0.65 : 0.5;
     const transStart = activePhrase.end - transWindow;
     if (t >= transStart && t <= activePhrase.end) {
       const p = (t - transStart) / transWindow;
-      // Gentle depth breathe (1.0 -> 1.025 -> 1.0)
-      const breathe = Math.sin(p * Math.PI) * 0.025 * intensityMult;
+      const breatheMagnitude = isWild ? 0.065 : isCalm ? 0.012 : 0.03;
+      const breathe = Math.sin(p * Math.PI) * breatheMagnitude;
       camScale += breathe;
     }
   }
 
   return {
-    x: camX,
-    y: camY,
+    x: camX + shakeX,
+    y: camY + shakeY,
     scale: camScale * punchScale,
     rotation: camRot,
     punchScale,
-    shakeX: 0,
-    shakeY: 0,
-    whipBlurAlpha: 0,
+    shakeX,
+    shakeY,
+    whipBlurAlpha: isWild ? 0.15 : 0,
   };
 }

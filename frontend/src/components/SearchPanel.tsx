@@ -16,6 +16,8 @@ export const SearchPanel: React.FC = () => {
   const playTrack = usePlayerStore((s) => s.playTrack);
   const addToQueue = usePlayerStore((s) => s.addToQueue);
   const currentTrack = usePlayerStore((s) => s.currentTrack);
+  const isLoadingTrack = usePlayerStore((s) => s.isLoadingTrack);
+  const downloadProgress = usePlayerStore((s) => s.downloadProgress);
 
   const handleSearch = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -212,65 +214,97 @@ export const SearchPanel: React.FC = () => {
         {!isSearching &&
           results.map((track) => {
             const isCurrent = currentTrack?.id === track.id;
+            const isDownloading = isCurrent && isLoadingTrack;
             return (
               <div
                 key={track.id}
-                className={`group flex items-center justify-between p-2 rounded-xl border transition-all ${
+                className={`group flex flex-col p-2 rounded-xl border transition-all ${
                   isCurrent
                     ? 'bg-brand-500/10 border-brand-500/40 text-white'
                     : 'bg-surfaceLight/30 border-surfaceBorder/40 hover:bg-surfaceLight/80 hover:border-surfaceBorder'
                 }`}
               >
-                <div
-                  className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer"
-                  onClick={() => playTrack(track)}
-                >
-                  <div className="relative w-11 h-11 rounded-lg overflow-hidden shrink-0 bg-surfaceBorder">
-                    {track.thumbnail ? (
-                      <img
-                        src={track.thumbnail}
-                        alt={track.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-brand-500/20 text-brand-400">
-                        <Music className="w-5 h-5" />
+                <div className="flex items-center justify-between">
+                  <div
+                    className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer"
+                    onClick={() => playTrack(track)}
+                  >
+                    <div className="relative w-11 h-11 rounded-lg overflow-hidden shrink-0 bg-surfaceBorder">
+                      {track.thumbnail ? (
+                        <img
+                          src={track.thumbnail}
+                          alt={track.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-brand-500/20 text-brand-400">
+                          <Music className="w-5 h-5" />
+                        </div>
+                      )}
+                      <div className={`absolute inset-0 flex items-center justify-center transition-opacity ${
+                        isDownloading
+                          ? 'bg-black/60 opacity-100'
+                          : 'bg-black/40 opacity-0 group-hover:opacity-100'
+                      }`}>
+                        {isDownloading ? (
+                          <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
+                        ) : (
+                          <Play className="w-4 h-4 fill-white text-white" />
+                        )}
                       </div>
-                    )}
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                      <Play className="w-4 h-4 fill-white text-white" />
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <p className={`text-xs font-semibold truncate ${isCurrent ? 'text-brand-400' : 'text-gray-100'}`}>
+                        {track.track || track.title}
+                      </p>
+                      <p className="text-[11px] text-gray-400 truncate flex items-center gap-1.5">
+                        {isDownloading ? (
+                          <span className="text-amber-400 font-medium flex items-center gap-1">
+                            <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                            Downloading {Math.round(downloadProgress)}%
+                          </span>
+                        ) : (
+                          <span>{track.artist || track.channel} • {formatDuration(track.duration)}</span>
+                        )}
+                      </p>
                     </div>
                   </div>
 
-                  <div className="min-w-0 flex-1">
-                    <p className={`text-xs font-semibold truncate ${isCurrent ? 'text-brand-400' : 'text-gray-100'}`}>
-                      {track.track || track.title}
-                    </p>
-                    <p className="text-[11px] text-gray-400 truncate">
-                      {track.artist || track.channel} • {formatDuration(track.duration)}
-                    </p>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => addToQueue(track)}
+                      className="w-8 h-8 flex items-center justify-center hover:bg-white/10 active:scale-90 rounded-lg text-gray-400 hover:text-white transition-all"
+                      title="Add to Up Next"
+                      aria-label="Add to Queue"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => playTrack(track)}
+                      className="w-8 h-8 flex items-center justify-center hover:bg-brand-500/20 active:scale-90 rounded-lg text-brand-400 transition-all"
+                      title="Play Now"
+                      aria-label="Play Now"
+                    >
+                      {isDownloading ? (
+                        <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
+                      ) : (
+                        <Play className="w-4 h-4 fill-current" />
+                      )}
+                    </button>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1 shrink-0">
-                  <button
-                    onClick={() => addToQueue(track)}
-                    className="w-8 h-8 flex items-center justify-center hover:bg-white/10 active:scale-90 rounded-lg text-gray-400 hover:text-white transition-all"
-                    title="Add to Up Next"
-                    aria-label="Add to Queue"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => playTrack(track)}
-                    className="w-8 h-8 flex items-center justify-center hover:bg-brand-500/20 active:scale-90 rounded-lg text-brand-400 transition-all"
-                    title="Play Now"
-                    aria-label="Play Now"
-                  >
-                    <Play className="w-4 h-4 fill-current" />
-                  </button>
-                </div>
+                {/* Progress bar informing user of downloading progress */}
+                {isDownloading && (
+                  <div className="w-full bg-surfaceLight/80 h-1.5 rounded-full overflow-hidden mt-2 border border-white/5">
+                    <div
+                      className="bg-gradient-to-r from-amber-500 via-amber-400 to-brand-400 h-full rounded-full transition-all duration-300 shadow-sm shadow-amber-400/50"
+                      style={{ width: `${Math.max(6, Math.min(100, downloadProgress))}%` }}
+                    />
+                  </div>
+                )}
               </div>
             );
           })}

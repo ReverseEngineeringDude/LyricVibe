@@ -19,6 +19,8 @@ interface PlayerState {
   history: TrackMetadata[];
   favorites: TrackMetadata[];
   isLoadingTrack: boolean;
+  downloadProgress: number;
+  downloadStatus: 'idle' | 'connecting' | 'downloading' | 'ready';
   error: string | null;
 
   // Actions
@@ -28,6 +30,8 @@ interface PlayerState {
   resume: () => void;
   seekTo: (time: number) => void;
   setAudioClock: (currentTime: number, duration: number, bufferedTime?: number) => void;
+  setDownloadProgress: (progress: number, status?: 'idle' | 'connecting' | 'downloading' | 'ready') => void;
+  setIsLoadingTrack: (loading: boolean) => void;
   setVolume: (volume: number) => void;
   toggleMute: () => void;
   nextTrack: () => void;
@@ -81,6 +85,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   history: loadFromStorage<TrackMetadata[]>(STORAGE_KEY_HISTORY, []),
   favorites: loadFromStorage<TrackMetadata[]>(STORAGE_KEY_FAVORITES, []),
   isLoadingTrack: false,
+  downloadProgress: 0,
+  downloadStatus: 'idle',
   error: null,
 
   playTrack: (track: TrackMetadata) => {
@@ -110,6 +116,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       history: newHistory,
       error: null,
       isLoadingTrack: true,
+      downloadProgress: 12,
+      downloadStatus: 'connecting',
     });
   },
 
@@ -133,11 +141,27 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   setAudioClock: (currentTime: number, duration: number, bufferedTime: number = 0) => {
+    const isNowPlaying = currentTime > 0.05;
     set({
       currentTime,
       duration: duration || get().duration,
       bufferedTime,
-      isLoadingTrack: false,
+      ...(isNowPlaying ? { isLoadingTrack: false, downloadProgress: 100, downloadStatus: 'ready' } : {}),
+    });
+  },
+
+  setDownloadProgress: (progress: number, status?: 'idle' | 'connecting' | 'downloading' | 'ready') => {
+    set((state) => ({
+      downloadProgress: Math.min(100, Math.max(0, progress)),
+      downloadStatus: status || state.downloadStatus,
+      isLoadingTrack: progress < 100,
+    }));
+  },
+
+  setIsLoadingTrack: (loading: boolean) => {
+    set({
+      isLoadingTrack: loading,
+      ...(loading ? { downloadStatus: 'downloading' } : { downloadProgress: 100, downloadStatus: 'ready' }),
     });
   },
 

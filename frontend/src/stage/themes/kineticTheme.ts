@@ -126,12 +126,18 @@ export class KineticTheme implements StageTheme {
     return phrases;
   }
 
-  private getLayout(ctx: CanvasRenderingContext2D, phrase: KineticPhrase, w: number, h: number): PhraseLayout {
-    const key = `${phrase.index}:${w}:${h}`;
+  private getLayout(
+    ctx: CanvasRenderingContext2D,
+    phrase: KineticPhrase,
+    w: number,
+    h: number,
+    intensity: 'calm' | 'balanced' | 'wild' = 'balanced'
+  ): PhraseLayout {
+    const key = `${phrase.index}:${w}:${h}:${intensity}`;
     const cached = this.layoutCache.get(key);
     if (cached) return cached;
 
-    const layout = computePhraseLayout(ctx, phrase, w, h);
+    const layout = computePhraseLayout(ctx, phrase, w, h, intensity);
     this.layoutCache.set(key, layout);
     return layout;
   }
@@ -237,8 +243,8 @@ export class KineticTheme implements StageTheme {
         // Smoothstep easing
         const ease = u * u * (3 - 2 * u);
 
-        const curLayout = this.getLayout(ctx, curPhrase, w, h);
-        const nextLayout = this.getLayout(ctx, nextPhrase, w, h);
+        const curLayout = this.getLayout(ctx, curPhrase, w, h, kineticOpts.intensity);
+        const nextLayout = this.getLayout(ctx, nextPhrase, w, h, kineticOpts.intensity);
 
         // Required vertical clearance distance so bounding boxes NEVER collide or overlap
         const slideDist = (curLayout.height + nextLayout.height) / 2 + 60;
@@ -281,7 +287,7 @@ export class KineticTheme implements StageTheme {
       if (t > fadeStart) {
         const u = Math.min(1, Math.max(0, (t - fadeStart) / 0.6));
         const ease = u * u * (3 - 2 * u);
-        const lastLayout = this.getLayout(ctx, curPhrase, w, h);
+        const lastLayout = this.getLayout(ctx, curPhrase, w, h, kineticOpts.intensity);
         phrasesToDraw.push({
           phrase: curPhrase,
           offsetY: -ease * (lastLayout.height / 2 + 40),
@@ -303,7 +309,7 @@ export class KineticTheme implements StageTheme {
       const enterStart = firstPhrase.start - TRANSITION_DUR;
       const u = Math.min(1, Math.max(0, (t - enterStart) / TRANSITION_DUR));
       const ease = u * u * (3 - 2 * u);
-      const firstLayout = this.getLayout(ctx, firstPhrase, w, h);
+      const firstLayout = this.getLayout(ctx, firstPhrase, w, h, kineticOpts.intensity);
       const slideInDist = firstLayout.height / 2 + 50;
       if (phrasesToDraw.length > 0 && phrasesToDraw[0].phrase === firstPhrase) {
         phrasesToDraw[0].offsetY = (1.0 - ease) * slideInDist;
@@ -324,7 +330,7 @@ export class KineticTheme implements StageTheme {
     // 6. Draw Phrases with Smooth Transition Transforms
     for (const item of phrasesToDraw) {
       if (item.opacity <= 0.01) continue;
-      const layout = this.getLayout(ctx, item.phrase, w, h);
+      const layout = this.getLayout(ctx, item.phrase, w, h, kineticOpts.intensity);
       this.drawPhraseLayout(
         ctx,
         item.phrase,
@@ -335,7 +341,8 @@ export class KineticTheme implements StageTheme {
         item.offsetY,
         item.opacity,
         item.scale,
-        prefersReducedMotion
+        prefersReducedMotion,
+        kineticOpts
       );
     }
 
@@ -357,14 +364,18 @@ export class KineticTheme implements StageTheme {
     phraseOffsetY: number,
     phraseOpacity: number,
     phraseScale: number,
-    prefersReducedMotion: boolean
+    prefersReducedMotion: boolean,
+    kineticOpts: KineticOptions
   ) {
     ctx.save();
     ctx.translate(0, phraseOffsetY);
     ctx.scale(phraseScale, phraseScale);
 
+    const isWild = kineticOpts.intensity === 'wild';
+    const isCalm = kineticOpts.intensity === 'calm';
+
     for (const box of layout.wordBoxes) {
-      const anim = getWordAnimationState(t, box, phrase, energyAtT, prefersReducedMotion);
+      const anim = getWordAnimationState(t, box, phrase, energyAtT, prefersReducedMotion, kineticOpts.intensity);
       if (!anim.visible) continue;
 
       ctx.save();
@@ -401,24 +412,69 @@ export class KineticTheme implements StageTheme {
       // Render Word Fill or Outline
       if (box.word.styleType === 'outline') {
         ctx.strokeStyle = textColor;
-        ctx.lineWidth = Math.max(2.5, box.fontSize * 0.045);
+        ctx.lineWidth = Math.max(2.5, box.fontSize * (isWild ? 0.065 : 0.045));
         ctx.strokeText(displayText, 0, 0);
       } else {
-        // Glow shadow only when currently sung
+        // Glow shadow
         if (isSung) {
           ctx.shadowColor = pal.accent || '#facc15';
-          ctx.shadowBlur = Math.min(24, box.fontSize * 0.32);
+          const blurMult = isWild ? 0.48 : isCalm ? 0.18 : 0.32;
+          ctx.shadowBlur = Math.min(36, box.fontSize * blurMult);
         }
+
+        // Chromatic Aberration in Wild mode
+        if (isSung && isWild && anim.slamAberration > 0.5) {
+          ctx.save();
+          ctx.fillStyle = 'rgba(6, 182, 212, 0.65)';
+          ctx.fillText(displayText, -anim.slamAberration, 0);
+          ctx.restore();
+
+          ctx.save();
+          ctx.fillStyle = 'rgba(236, 72, 153, 0.65)';
+          ctx.fillText(displayText, anim.slamAberration, 0);
+          ctx.restore();
+        }
+
         ctx.fillStyle = textColor;
         ctx.fillText(displayText, 0, 0);
         ctx.shadowBlur = 0;
       }
 
+      // Kinetic Particle Sparks in Wild mode around currently sung word
+      if (isSung && isWild && !prefersReducedMotion) {
+        const numSparks = 4;
+        for (let s = 0; s < numSparks; s++) {
+          const sparkAngle = t * 5 + s * (Math.PI * 2 / numSparks);
+          const sparkDist = (box.w / 2 + 10) * (0.85 + 0.15 * Math.sin(t * 10 + s));
+          const sx = Math.cos(sparkAngle) * sparkDist;
+          const sy = Math.sin(sparkAngle) * (box.h * 0.42);
+          ctx.save();
+          ctx.fillStyle = pal.accent || '#facc15';
+          ctx.shadowColor = pal.accent || '#facc15';
+          ctx.shadowBlur = 8;
+          ctx.beginPath();
+          ctx.arc(sx, sy, 2.0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+
       // Sung Word Underline Sweep
       if (isSung) {
         const sweepW = box.w * anim.sungProgress;
-        ctx.fillStyle = pal.accent || '#facc15';
-        ctx.fillRect(-box.w / 2, box.h * 0.44, sweepW, Math.max(3, box.fontSize * 0.055));
+        if (isWild) {
+          ctx.shadowColor = pal.accent || '#facc15';
+          ctx.shadowBlur = 14;
+          ctx.fillStyle = pal.accent || '#facc15';
+          ctx.fillRect(-box.w / 2, box.h * 0.44, sweepW, Math.max(4, box.fontSize * 0.08));
+          ctx.shadowBlur = 0;
+        } else if (isCalm) {
+          ctx.fillStyle = colorWithAlpha(pal.accent || '#facc15', 0.65);
+          ctx.fillRect(-box.w / 2, box.h * 0.44, sweepW, Math.max(2, box.fontSize * 0.038));
+        } else {
+          ctx.fillStyle = pal.accent || '#facc15';
+          ctx.fillRect(-box.w / 2, box.h * 0.44, sweepW, Math.max(3, box.fontSize * 0.055));
+        }
       }
 
       ctx.restore();

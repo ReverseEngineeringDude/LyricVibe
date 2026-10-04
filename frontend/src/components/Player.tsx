@@ -19,6 +19,7 @@ import {
   Music,
   Eye,
   Zap,
+  Loader2,
 } from 'lucide-react';
 import { OffsetControl } from './OffsetControl';
 
@@ -28,6 +29,9 @@ export const Player: React.FC = () => {
   const currentTime = usePlayerStore((s) => s.currentTime);
   const duration = usePlayerStore((s) => s.duration);
   const bufferedTime = usePlayerStore((s) => s.bufferedTime);
+  const isLoadingTrack = usePlayerStore((s) => s.isLoadingTrack);
+  const downloadProgress = usePlayerStore((s) => s.downloadProgress);
+  const downloadStatus = usePlayerStore((s) => s.downloadStatus);
   const volume = usePlayerStore((s) => s.volume);
   const isMuted = usePlayerStore((s) => s.isMuted);
   const repeatMode = usePlayerStore((s) => s.repeatMode);
@@ -127,6 +131,21 @@ export const Player: React.FC = () => {
   return (
     <div className="w-full bg-surface/95 backdrop-blur-xl border-t border-surfaceBorder px-2.5 sm:px-4 pt-2 sm:pt-3 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] sm:pb-3 select-none z-30">
       <div className="max-w-7xl mx-auto flex flex-col gap-1.5 sm:gap-2">
+        {/* Downloading Status & Progress Notice */}
+        {isLoadingTrack && currentTrack && (
+          <div className="flex items-center justify-between px-1 text-[10px] sm:text-[11px] font-medium text-amber-300">
+            <div className="flex items-center gap-1.5">
+              <Loader2 className="w-3 h-3 animate-spin text-amber-400 shrink-0" />
+              <span className="truncate">
+                {downloadStatus === 'connecting'
+                  ? 'Connecting & fetching audio stream...'
+                  : 'Downloading & buffering audio stream...'}
+              </span>
+            </div>
+            <span className="font-mono text-amber-400 font-bold shrink-0">{Math.round(downloadProgress)}%</span>
+          </div>
+        )}
+
         {/* Seek Bar with Buffered Indicator & Touch Scrubbing */}
         <div className="flex items-center gap-2 sm:gap-3">
           <span className="text-[10px] sm:text-[11px] font-mono text-gray-400 min-w-[32px] sm:min-w-[36px] text-right">
@@ -154,9 +173,18 @@ export const Player: React.FC = () => {
                 className="absolute left-0 top-0 bottom-0 bg-surfaceBorder/80 rounded-full transition-all duration-300"
                 style={{ width: `${Math.min(100, bufferedPercent)}%` }}
               />
+              {/* Downloading Progress Bar */}
+              {isLoadingTrack && (
+                <div
+                  className="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-amber-500 via-amber-400 to-brand-400 rounded-full transition-all duration-300 shadow-sm shadow-amber-500/50"
+                  style={{ width: `${Math.max(6, Math.min(100, downloadProgress))}%` }}
+                />
+              )}
               {/* Played Progress Bar */}
               <div
-                className="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-brand-600 to-brand-400 rounded-full transition-all"
+                className={`absolute left-0 top-0 bottom-0 ${
+                  isLoadingTrack ? 'bg-transparent' : 'bg-gradient-to-r from-brand-600 to-brand-400'
+                } rounded-full transition-all`}
                 style={{ width: `${Math.min(100, progressPercent)}%` }}
               />
             </div>
@@ -243,10 +271,16 @@ export const Player: React.FC = () => {
               onClick={togglePlay}
               disabled={!currentTrack}
               className="w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-white text-black hover:scale-105 active:scale-95 flex items-center justify-center shadow-lg transition-transform disabled:opacity-40"
-              title={isPlaying ? 'Pause' : 'Play'}
-              aria-label={isPlaying ? 'Pause' : 'Play'}
+              title={isLoadingTrack ? 'Downloading audio...' : isPlaying ? 'Pause' : 'Play'}
+              aria-label={isLoadingTrack ? 'Downloading audio' : isPlaying ? 'Pause' : 'Play'}
             >
-              {isPlaying ? <Pause className="w-4 h-4 sm:w-5 sm:h-5 fill-current" /> : <Play className="w-4 h-4 sm:w-5 sm:h-5 fill-current ml-0.5" />}
+              {isLoadingTrack ? (
+                <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin text-brand-600" />
+              ) : isPlaying ? (
+                <Pause className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
+              ) : (
+                <Play className="w-4 h-4 sm:w-5 sm:h-5 fill-current ml-0.5" />
+              )}
             </button>
 
             <button

@@ -36,7 +36,8 @@ export function getWordAnimationState(
   box: WordLayoutBox,
   phrase: KineticPhrase,
   energyAtT = 0.5,
-  prefersReducedMotion = false
+  prefersReducedMotion = false,
+  intensity: 'calm' | 'balanced' | 'wild' = 'balanced'
 ): WordRenderState {
   const word = box.word;
   const start = word.start;
@@ -46,49 +47,85 @@ export function getWordAnimationState(
   const isSung = t >= start && t <= end;
   const isPast = t > end;
 
-  let opacity = 0.38;
+  const isWild = intensity === 'wild';
+  const isCalm = intensity === 'calm';
+
+  let opacity = isCalm ? 0.30 : isWild ? 0.45 : 0.38;
   let scale = 1.0;
   let glowAlpha = 0;
   let sungProgress = 0;
   let slamAberration = 0;
+  let wordShakeX = 0;
+  let wordShakeY = 0;
 
   if (isSung) {
     const dur = Math.max(0.08, end - start);
     sungProgress = Math.min(1, Math.max(0, (t - start) / dur));
     opacity = 1.0;
 
-    // Smooth pop scale upon entrance of singing (1.0 -> 1.06 -> 1.02)
-    if (sungProgress < 0.35) {
-      const popP = sungProgress / 0.35;
-      scale = 1.0 + 0.06 * Math.sin(popP * Math.PI);
-    } else {
-      scale = 1.02;
-    }
+    if (isWild) {
+      // Wild: Explosive 1.28x spring bounce with punchy overshoot
+      if (sungProgress < 0.40) {
+        const popP = sungProgress / 0.40;
+        scale = 1.0 + 0.28 * easeOutBack(Math.sin(popP * Math.PI * 0.5));
+      } else {
+        scale = 1.05;
+      }
+      glowAlpha = 1.25;
+      slamAberration = Math.max(0, 1.0 - sungProgress) * 7.5 * (0.6 + 0.4 * energyAtT);
 
-    glowAlpha = 0.85 + 0.15 * Math.sin(sungProgress * Math.PI);
-    slamAberration = 0;
+      // Micro entrance shake
+      if (sungProgress < 0.20 && !prefersReducedMotion) {
+        const sP = (1.0 - sungProgress / 0.20) * 3.5;
+        wordShakeX = Math.sin(t * 110) * sP;
+        wordShakeY = Math.cos(t * 95) * sP;
+      }
+    } else if (isCalm) {
+      // Calm: Gentle, serene 1.03x breathing scale
+      if (sungProgress < 0.40) {
+        const popP = sungProgress / 0.40;
+        scale = 1.0 + 0.03 * Math.sin(popP * Math.PI);
+      } else {
+        scale = 1.01;
+      }
+      glowAlpha = 0.50;
+      slamAberration = 0;
+    } else {
+      // Balanced: Clean 1.10x pop bounce
+      if (sungProgress < 0.35) {
+        const popP = sungProgress / 0.35;
+        scale = 1.0 + 0.10 * Math.sin(popP * Math.PI);
+      } else {
+        scale = 1.02;
+      }
+      glowAlpha = 0.85 + 0.15 * Math.sin(sungProgress * Math.PI);
+      slamAberration = 0;
+    }
   } else if (isPast) {
-    opacity = 0.88;
+    opacity = isCalm ? 0.78 : isWild ? 0.94 : 0.88;
     scale = 1.0;
     glowAlpha = 0;
   } else {
     // Upcoming word
-    opacity = 0.38;
+    opacity = isCalm ? 0.30 : isWild ? 0.45 : 0.38;
     scale = 1.0;
     glowAlpha = 0;
   }
 
-  // Gentle, organic floating drift
+  // Organic floating drift tailored by intensity
   let driftX = 0;
   let driftY = 0;
   let driftRot = 0;
 
   if (!prefersReducedMotion) {
     const wordSeed = (phrase.seed ^ (word.line * 43 + (word.colorIndex + 1) * 23)) >>> 0;
-    const floatPhase = t * 1.4 + (wordSeed % 100) * 0.08;
-    driftX = Math.sin(floatPhase) * 1.5;
-    driftY = Math.cos(floatPhase * 0.8) * 1.2;
-    driftRot = Math.sin(floatPhase * 0.5) * 0.008;
+    const speedMult = isWild ? 2.2 : isCalm ? 0.6 : 1.2;
+    const ampMult = isWild ? 2.5 : isCalm ? 0.45 : 1.1;
+
+    const floatPhase = t * (1.2 * speedMult) + (wordSeed % 100) * 0.08;
+    driftX = Math.sin(floatPhase) * 1.5 * ampMult;
+    driftY = Math.cos(floatPhase * 0.8) * 1.2 * ampMult;
+    driftRot = isCalm ? 0 : Math.sin(floatPhase * 0.5) * (isWild ? 0.032 : 0.009);
   }
 
   return {
@@ -96,16 +133,16 @@ export function getWordAnimationState(
     opacity,
     scaleX: scale,
     scaleY: scale,
-    translateX: driftX,
-    translateY: driftY,
+    translateX: driftX + wordShakeX,
+    translateY: driftY + wordShakeY,
     rotation: (box.rotation || 0) + driftRot,
     isSung,
     isPast,
     isUpcoming,
     sungProgress,
     glowAlpha,
-    shakeX: 0,
-    shakeY: 0,
+    shakeX: wordShakeX,
+    shakeY: wordShakeY,
     slamAberration,
   };
 }
