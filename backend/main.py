@@ -78,7 +78,12 @@ app.include_router(analysis.router)
 @app.get("/health")
 @app.get("/api/health")
 async def health_check():
-    return {"status": "ok", "service": "LyricVibe"}
+    import yt_dlp
+    return {
+        "status": "ok",
+        "service": "LyricVibe",
+        "ytdlp_version": getattr(yt_dlp, "__version__", None) or getattr(getattr(yt_dlp, "version", None), "__version__", "unknown"),
+    }
 
 
 # Serve static frontend in production if built

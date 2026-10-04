@@ -1,18 +1,20 @@
 FROM python:3.11-slim
 
-# Install system packages: ffmpeg (for audio/video transcoding), curl, nodejs (JS runtime for yt-dlp)
+# Install system packages: ffmpeg (for audio/video transcoding), curl, nodejs (JS runtime for yt-dlp), git
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     curl \
     nodejs \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Install Python requirements
+# Install Python requirements and latest upstream yt-dlp master
 COPY backend/requirements.txt requirements.txt
-RUN pip install --no-cache-dir --upgrade pip yt-dlp && \
-    pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir --upgrade --force-reinstall https://github.com/yt-dlp/yt-dlp/archive/master.tar.gz
 
 # Copy application source
 COPY backend/ backend/
