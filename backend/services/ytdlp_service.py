@@ -1,9 +1,12 @@
 import asyncio
+import logging
 import os
 import shutil
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Optional
 import yt_dlp
+
+logger = logging.getLogger("ytdlp")
 
 from backend.config import YTDLP_COOKIES_FILE
 from backend.services.title_clean import parse_artist_title, clean_channel_name
@@ -29,7 +32,7 @@ class TrackError(Exception):
         super().__init__(message)
 
 
-def _get_ydl_base_opts() -> dict:
+def _get_ydl_base_opts(use_cookies: bool = True) -> dict:
     opts: Dict[str, Any] = {
         "quiet": True,
         "no_warnings": True,
@@ -40,7 +43,16 @@ def _get_ydl_base_opts() -> dict:
         "source_address": "0.0.0.0",  # Force IPv4 to prevent YouTube datacenter IPv6 blocks
         "extractor_args": {
             "youtube": {
-                "player_client": ["visionos"],
+                # Explicitly disable all broken TV clients (-tv, -tv_downgraded, -tv_simply)
+                "player_client": [
+                    "-tv",
+                    "-tv_downgraded",
+                    "-tv_simply",
+                    "visionos",
+                    "android",
+                    "web_safari",
+                    "web_embedded",
+                ],
             }
         },
     }
@@ -56,9 +68,8 @@ def _get_ydl_base_opts() -> dict:
     if runtimes:
         opts["js_runtimes"] = runtimes
 
-    if YTDLP_COOKIES_FILE and os.path.exists(YTDLP_COOKIES_FILE):
+    if use_cookies and YTDLP_COOKIES_FILE and os.path.exists(YTDLP_COOKIES_FILE):
         opts["cookiefile"] = YTDLP_COOKIES_FILE
-        opts["extractor_args"]["youtube"]["player_client"] = ["visionos", "web"]
     return opts
 
 
@@ -70,13 +81,13 @@ def _classify_ytdlp_error(err_msg: str) -> TrackError:
             message="The requested audio stream format is unavailable for this video.",
             status_code=404,
         )
-    if "sign in to confirm you’re not a bot" in err_lower or "not a bot" in err_lower or "use --cookies" in err_lower:
+    if "sign in to confirm you’re not a bot" in err_lower or "not a bot" in err_lower:
         return TrackError(
             code="BOT_CHECK_BLOCKED",
             message="YouTube bot verification triggered. Set YTDLP_COOKIES_TEXT in Render environment variables to bypass.",
             status_code=403,
         )
-    if "the page needs to be reloaded" in err_lower or "reload" in err_lower:
+    if "the page needs to be reloaded" in err_lower:
         return TrackError(
             code="CLIENT_DEPRECATED",
             message="YouTube client deprecated or session expired.",
@@ -169,63 +180,68 @@ def _sync_search_tracks(query: str, limit: int = 10) -> List[Dict[str, Any]]:
 
 def _sync_get_track_metadata(video_id: str) -> Dict[str, Any]:
     url = f"https://www.youtube.com/watch?v={video_id}"
-    base_opts = _get_ydl_base_opts()
-    base_opts["skip_download"] = True
 
     client_candidates = [
+        ["-tv", "-tv_downgraded", "-tv_simply", "visionos", "android", "web_safari", "web_embedded"],
         ["visionos"],
-        ["android_music"],
         ["android"],
-        ["mediaconnect"],
+        ["web_safari"],
+        ["web_embedded"],
     ]
 
+    cookie_attempts = [True, False] if (YTDLP_COOKIES_FILE and os.path.exists(YTDLP_COOKIES_FILE)) else [False]
     last_error: Optional[Exception] = None
 
-    for clients in client_candidates:
-        opts = dict(base_opts)
-        opts["extractor_args"] = {
-            "youtube": {
-                "player_client": clients,
-            }
-        }
+    for use_cookies in cookie_attempts:
+        base_opts = _get_ydl_base_opts(use_cookies=use_cookies)
+        base_opts["skip_download"] = True
 
-        try:
-            with yt_dlp.YoutubeDL(opts) as ydl:
-                info = ydl.extract_info(url, download=False)
-                if not info:
-                    continue
-
-                if info.get("is_live"):
-                    raise TrackError(
-                        code="LIVE_STREAM_UNSUPPORTED",
-                        message="Live stream audio is not supported.",
-                        status_code=400,
-                    )
-
-                raw_title = info.get("title") or "Unknown Title"
-                channel = clean_channel_name(info.get("uploader") or info.get("channel") or "")
-                parsed = parse_artist_title(raw_title, channel)
-                duration = int(info.get("duration") or 0)
-
-                # Best thumbnail
-                thumbnail_url = info.get("thumbnail") or ""
-                if not thumbnail_url and video_id:
-                    thumbnail_url = f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg"
-
-                return {
-                    "id": video_id,
-                    "title": raw_title,
-                    "artist": parsed["artist"],
-                    "track": parsed["track"],
-                    "uploader": channel,
-                    "duration": duration,
-                    "thumbnail": thumbnail_url,
+        for clients in client_candidates:
+            opts = dict(base_opts)
+            opts["extractor_args"] = {
+                "youtube": {
+                    "player_client": clients,
                 }
-        except TrackError:
-            raise
-        except Exception as e:
-            last_error = e
-            continue
+            }
+
+            try:
+                with yt_dlp.YoutubeDL(opts) as ydl:
+                    info = ydl.extract_info(url, download=False)
+                    if not info:
+                        continue
+
+                    if info.get("is_live"):
+                        raise TrackError(
+                            code="LIVE_STREAM_UNSUPPORTED",
+                            message="Live stream audio is not supported.",
+                            status_code=400,
+                        )
+
+                    raw_title = info.get("title") or "Unknown Title"
+                    channel = clean_channel_name(info.get("uploader") or info.get("channel") or "")
+                    parsed = parse_artist_title(raw_title, channel)
+                    duration = int(info.get("duration") or 0)
+
+                    # Best thumbnail
+                    thumbnail_url = info.get("thumbnail") or ""
+                    if not thumbnail_url and video_id:
+                        thumbnail_url = f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg"
+
+                    return {
+                        "id": video_id,
+                        "title": raw_title,
+                        "artist": parsed["artist"],
+                        "track": parsed["track"],
+                        "uploader": channel,
+                        "duration": duration,
+                        "thumbnail": thumbnail_url,
+                    }
+            except TrackError:
+                raise
+            except Exception as e:
+                last_error = e
+                logger.warning(f"Metadata extraction client {clients} (cookies={use_cookies}) failed for {video_id}: {e}")
+                continue
 
     if last_error:
         raise _classify_ytdlp_error(str(last_error))
@@ -235,90 +251,96 @@ def _sync_get_track_metadata(video_id: str) -> Dict[str, Any]:
 
 def _sync_extract_stream_url(video_id: str) -> Dict[str, Any]:
     url = f"https://www.youtube.com/watch?v={video_id}"
-    base_opts = _get_ydl_base_opts()
-    base_opts["skip_download"] = True
 
     # Sequential client candidates to bypass bot challenges and extract progressive audio
+    # -tv, -tv_downgraded, -tv_simply prevent YouTube's deprecated TV HTML5 endpoints from triggering 'The page needs to be reloaded'
     client_candidates = [
+        ["-tv", "-tv_downgraded", "-tv_simply", "visionos", "android", "web_safari", "web_embedded"],
         ["visionos"],
-        ["android_music"],
         ["android"],
-        ["mediaconnect"],
+        ["web_safari"],
+        ["web_embedded"],
     ]
 
+    cookie_attempts = [True, False] if (YTDLP_COOKIES_FILE and os.path.exists(YTDLP_COOKIES_FILE)) else [False]
     last_error: Optional[Exception] = None
 
-    for clients in client_candidates:
-        opts = dict(base_opts)
-        opts["extractor_args"] = {
-            "youtube": {
-                "player_client": clients,
+    for use_cookies in cookie_attempts:
+        base_opts = _get_ydl_base_opts(use_cookies=use_cookies)
+        base_opts["skip_download"] = True
+
+        for clients in client_candidates:
+            opts = dict(base_opts)
+            opts["extractor_args"] = {
+                "youtube": {
+                    "player_client": clients,
+                }
             }
-        }
 
-        try:
-            with yt_dlp.YoutubeDL(opts) as ydl:
-                info = ydl.extract_info(url, download=False)
-                if not info:
-                    continue
+            try:
+                with yt_dlp.YoutubeDL(opts) as ydl:
+                    info = ydl.extract_info(url, download=False)
+                    if not info:
+                        continue
 
-                if info.get("is_live"):
-                    raise TrackError(
-                        code="LIVE_STREAM_UNSUPPORTED",
-                        message="Live stream audio is not supported.",
-                        status_code=400,
-                    )
+                    if info.get("is_live"):
+                        raise TrackError(
+                            code="LIVE_STREAM_UNSUPPORTED",
+                            message="Live stream audio is not supported.",
+                            status_code=400,
+                        )
 
-                formats = info.get("formats", [])
-                if not formats:
-                    continue
+                    formats = info.get("formats", [])
+                    if not formats:
+                        continue
 
-                # 1. Look for true audio-only progressive formats (m4a, webm/opus)
-                audio_formats = [
-                    f for f in formats
-                    if f.get("acodec") != "none"
-                    and (not f.get("vcodec") or f.get("vcodec") == "none")
-                    and f.get("url")
-                    and not f.get("url", "").endswith(".m3u8")
-                    and "manifest.googlevideo.com" not in f.get("url", "")
-                ]
-
-                # 2. Fallback to combined video+audio formats (e.g. format 18 mp4 360p)
-                if not audio_formats:
+                    # 1. Look for true audio-only progressive formats (m4a, webm/opus)
                     audio_formats = [
                         f for f in formats
                         if f.get("acodec") != "none"
+                        and (not f.get("vcodec") or f.get("vcodec") == "none")
                         and f.get("url")
                         and not f.get("url", "").endswith(".m3u8")
                         and "manifest.googlevideo.com" not in f.get("url", "")
                     ]
 
-                if not audio_formats:
-                    continue
+                    # 2. Fallback to combined video+audio formats (e.g. format 18 mp4 360p)
+                    if not audio_formats:
+                        audio_formats = [
+                            f for f in formats
+                            if f.get("acodec") != "none"
+                            and f.get("url")
+                            and not f.get("url", "").endswith(".m3u8")
+                            and "manifest.googlevideo.com" not in f.get("url", "")
+                        ]
 
-                # Sort by audio bitrate (abr or tbr)
-                audio_formats.sort(key=lambda x: (x.get("abr") or x.get("tbr") or 0), reverse=True)
-                best_audio = audio_formats[0]
-                stream_url = best_audio.get("url")
-                if not stream_url:
-                    continue
+                    if not audio_formats:
+                        continue
 
-                ext = (best_audio.get("ext") or "m4a").lower()
-                content_type = "audio/mp4" if ext in ("m4a", "mp4") else "audio/webm"
-                format_headers = best_audio.get("http_headers") or info.get("http_headers") or {}
+                    # Sort by audio bitrate (abr or tbr)
+                    audio_formats.sort(key=lambda x: (x.get("abr") or x.get("tbr") or 0), reverse=True)
+                    best_audio = audio_formats[0]
+                    stream_url = best_audio.get("url")
+                    if not stream_url:
+                        continue
 
-                return {
-                    "stream_url": stream_url,
-                    "headers": format_headers,
-                    "content_type": content_type,
-                    "duration": int(info.get("duration") or 0),
-                }
+                    ext = (best_audio.get("ext") or "m4a").lower()
+                    content_type = "audio/mp4" if ext in ("m4a", "mp4") else "audio/webm"
+                    format_headers = best_audio.get("http_headers") or info.get("http_headers") or {}
 
-        except TrackError:
-            raise
-        except Exception as e:
-            last_error = e
-            continue
+                    return {
+                        "stream_url": stream_url,
+                        "headers": format_headers,
+                        "content_type": content_type,
+                        "duration": int(info.get("duration") or 0),
+                    }
+
+            except TrackError:
+                raise
+            except Exception as e:
+                last_error = e
+                logger.warning(f"Stream extraction client {clients} (cookies={use_cookies}) failed for {video_id}: {e}")
+                continue
 
     if last_error:
         raise _classify_ytdlp_error(str(last_error))

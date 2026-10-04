@@ -79,10 +79,17 @@ app.include_router(analysis.router)
 @app.get("/api/health")
 async def health_check():
     import yt_dlp
+    import shutil
+    from backend.config import YTDLP_COOKIES_FILE
+    has_cookies = bool(YTDLP_COOKIES_FILE and os.path.exists(YTDLP_COOKIES_FILE))
     return {
         "status": "ok",
         "service": "LyricVibe",
+        "build_tag": "2026-10-04-v3-resilient-clients",
         "ytdlp_version": getattr(yt_dlp, "__version__", None) or getattr(getattr(yt_dlp, "version", None), "__version__", "unknown"),
+        "has_cookies": has_cookies,
+        "has_deno": bool(shutil.which("deno")),
+        "has_node": bool(shutil.which("node") or shutil.which("nodejs")),
     }
 
 
