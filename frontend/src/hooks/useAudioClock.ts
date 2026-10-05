@@ -90,6 +90,10 @@ export function useAudioClock() {
     };
 
     const handleEnded = () => {
+      // Do not auto-advance queue during video exporting or clip picking
+      if (useSettingsStore.getState().isExportOpen || useSettingsStore.getState().isClipPickerOpen) {
+        return;
+      }
       nextTrack();
     };
 

@@ -26,7 +26,9 @@ import {
   RotateCcw,
   Sparkles,
   FileVideo,
+  Clock,
 } from 'lucide-react';
+import { OffsetControl } from './OffsetControl';
 
 interface Preset {
   id: 'story' | 'square' | 'landscape';
@@ -205,8 +207,9 @@ export const ExportModal: React.FC = () => {
         palette = await extractPaletteFromImage(currentTrack.thumbnail);
       }
 
-      // 4. Prewarm layout & scroll position
-      const initialActiveIdx = findActiveLineIndex(syncedLines, clipRange[0], timingOffset);
+      // 4. Prewarm layout & scroll position with manual sync timing offset
+      const adjustedStartTime = clipRange[0] + timingOffset;
+      const initialActiveIdx = findActiveLineIndex(syncedLines, adjustedStartTime);
       const exportVisuals: VisualOptions = {
         ...visualOptions,
         fps: fpsChoice,
@@ -214,7 +217,7 @@ export const ExportModal: React.FC = () => {
       };
 
       const initialStageState: StageState = {
-        currentTime: clipRange[0],
+        currentTime: adjustedStartTime,
         duration: trackDuration,
         isPlaying: true,
         syncedLines,
@@ -224,6 +227,7 @@ export const ExportModal: React.FC = () => {
         palette,
         prefersReducedMotion: false,
         isKineticMode: isKinetic,
+        timingOffset: timingOffset,
         width: logicalWidth,
         height: logicalHeight,
         dpr: 1,
@@ -247,9 +251,10 @@ export const ExportModal: React.FC = () => {
           setRecordedTime(time);
         },
         onFrame: (time, dt) => {
-          const activeIdx = findActiveLineIndex(syncedLines, time, timingOffset);
+          const adjustedTime = time + timingOffset;
+          const activeIdx = findActiveLineIndex(syncedLines, adjustedTime);
           const stageState: StageState = {
-            currentTime: time,
+            currentTime: adjustedTime,
             duration: trackDuration,
             isPlaying: true,
             syncedLines,
@@ -258,6 +263,8 @@ export const ExportModal: React.FC = () => {
             track: currentTrack,
             palette,
             prefersReducedMotion: false,
+            isKineticMode: isKinetic,
+            timingOffset: timingOffset,
             width: logicalWidth,
             height: logicalHeight,
             dpr: 1,
@@ -362,18 +369,23 @@ export const ExportModal: React.FC = () => {
         </div>
 
         {/* Clip Summary Bar */}
-        <div className="flex items-center justify-between bg-surfaceLight/60 border border-surfaceBorder rounded-xl p-3 text-xs">
-          <div className="flex items-center gap-2">
-            <Scissors className="w-4 h-4 text-brand-400" />
+        <div className="flex flex-wrap items-center justify-between gap-2 bg-surfaceLight/60 border border-surfaceBorder rounded-xl p-3 text-xs">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Scissors className="w-4 h-4 text-brand-400 shrink-0" />
             <span className="text-gray-400">Clip Range:</span>
             <span className="font-semibold text-white font-mono">
               {formatTime(clipRange[0])} &rarr; {formatTime(clipRange[1])} ({clipDuration}s)
             </span>
+            <span className="text-gray-600 hidden sm:inline">&bull;</span>
+            <div className="flex items-center gap-1 font-mono text-[11px] text-brand-400 bg-brand-500/10 px-1.5 py-0.5 rounded border border-brand-500/20">
+              <Clock className="w-3 h-3 text-brand-400" />
+              <span>Offset: {timingOffset > 0 ? `+${timingOffset.toFixed(1)}s` : `${timingOffset.toFixed(1)}s`}</span>
+            </div>
           </div>
           {status === 'idle' && (
             <button
               onClick={handleEditClipRange}
-              className="text-brand-400 hover:text-brand-300 font-medium underline text-xs transition-colors"
+              className="text-brand-400 hover:text-brand-300 font-medium underline text-xs transition-colors shrink-0"
             >
               Adjust Range
             </button>
@@ -467,6 +479,20 @@ export const ExportModal: React.FC = () => {
                   {muteDuringRecording ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
                   <span>{muteDuringRecording ? 'Speakers Muted' : 'Hear Audio'}</span>
                 </button>
+              </div>
+            </div>
+
+            {/* Sync Timing Offset Control inside Export Modal */}
+            <div className="bg-surfaceLight/40 border border-surfaceBorder rounded-xl p-2.5 sm:p-3 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <Clock className="w-4 h-4 text-brand-400 shrink-0" />
+                <div className="min-w-0">
+                  <span className="text-[11px] font-medium text-gray-200 block truncate">Sync Timing Offset</span>
+                  <span className="text-[10px] text-gray-400 block truncate">Preserved and rendered accurately into video</span>
+                </div>
+              </div>
+              <div className="shrink-0">
+                <OffsetControl compact={true} />
               </div>
             </div>
 

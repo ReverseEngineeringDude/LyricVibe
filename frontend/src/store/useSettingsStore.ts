@@ -78,6 +78,7 @@ interface SettingsState {
 const STORAGE_KEY_OFFSETS = 'lyricvibe_track_offsets';
 const STORAGE_KEY_VISUALS = 'lyricvibe_visual_options';
 const STORAGE_KEY_CUSTOM_BG = 'lyricvibe_custom_bg';
+const STORAGE_KEY_ACTIVE_OFFSET = 'lyricvibe_active_offset';
 
 function loadOffsets(): { [key: string]: number } {
   try {
@@ -93,6 +94,7 @@ function saveOffsetForTrack(trackId: string, offset: number) {
     const offsets = loadOffsets();
     offsets[trackId] = offset;
     localStorage.setItem(STORAGE_KEY_OFFSETS, JSON.stringify(offsets));
+    localStorage.setItem(STORAGE_KEY_ACTIVE_OFFSET, offset.toString());
   } catch {
     // Ignore quota errors
   }
@@ -189,6 +191,9 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   setTimingOffset: (offset: number, trackId?: string) => {
     const clamped = Math.round(Math.max(-5.0, Math.min(5.0, offset)) * 10) / 10;
     set({ timingOffset: clamped });
+    try {
+      localStorage.setItem(STORAGE_KEY_ACTIVE_OFFSET, clamped.toString());
+    } catch {}
     if (trackId) {
       saveOffsetForTrack(trackId, clamped);
     }

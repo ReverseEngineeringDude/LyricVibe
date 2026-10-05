@@ -12,6 +12,7 @@ export const ClipPicker: React.FC = () => {
   const clipRange = useSettingsStore((s) => s.clipRange);
   const setClipRange = useSettingsStore((s) => s.setClipRange);
   const syncedLines = useSettingsStore((s) => s.syncedLines);
+  const timingOffset = useSettingsStore((s) => s.timingOffset);
 
   const currentTrack = usePlayerStore((s) => s.currentTrack);
   const trackDuration = usePlayerStore((s) => s.duration) || currentTrack?.duration || 180;
@@ -243,13 +244,19 @@ export const ClipPicker: React.FC = () => {
               <span className="text-xs font-medium text-gray-300 flex items-center gap-1.5">
                 <Music className="w-3.5 h-3.5 text-brand-400" />
                 Snap to Synced Lyric Lines ({syncedLines.length} lines)
+                {timingOffset !== 0 && (
+                  <span className="text-[10px] text-brand-300 font-mono bg-brand-500/10 px-1.5 py-0.5 rounded border border-brand-500/20">
+                    Sync: {timingOffset > 0 ? `+${timingOffset.toFixed(1)}s` : `${timingOffset.toFixed(1)}s`}
+                  </span>
+                )}
               </span>
               <span className="text-[11px] text-gray-500">Click a line to set start / end</span>
             </div>
 
             <div className="max-h-48 overflow-y-auto rounded-xl border border-surfaceBorder bg-surfaceLight/30 divide-y divide-surfaceBorder/40 text-xs">
               {syncedLines.map((line, idx) => {
-                const inRange = line.time >= startTime && line.time <= endTime;
+                const targetAudioTime = Math.max(0, Math.round((line.time - timingOffset) * 10) / 10);
+                const inRange = targetAudioTime >= startTime && targetAudioTime <= endTime;
                 return (
                   <div
                     key={`${line.time}-${idx}`}
@@ -268,14 +275,14 @@ export const ClipPicker: React.FC = () => {
 
                     <div className="flex items-center gap-1 shrink-0">
                       <button
-                        onClick={() => handleStartChange(line.time)}
+                        onClick={() => handleStartChange(targetAudioTime)}
                         className="px-2 py-0.5 rounded text-[10px] font-medium bg-white/10 hover:bg-brand-600 hover:text-white text-gray-300 transition-colors"
                         title="Set clip start here"
                       >
                         Start
                       </button>
                       <button
-                        onClick={() => handleEndChange(line.time + 3)}
+                        onClick={() => handleEndChange(Math.min(trackDuration, targetAudioTime + 3))}
                         className="px-2 py-0.5 rounded text-[10px] font-medium bg-white/10 hover:bg-indigo-600 hover:text-white text-gray-300 transition-colors"
                         title="Set clip end here"
                       >
