@@ -160,18 +160,37 @@ export function getStreamUrl(videoId: string): string {
 }
 
 export async function convertToMp4(webmBlob: Blob): Promise<Blob> {
+  // If the recording was already captured as MP4 natively in the browser, return directly
+  if (webmBlob.type.includes('mp4')) {
+    return webmBlob;
+  }
+
   const formData = new FormData();
   formData.append('file', webmBlob, 'recording.webm');
 
-  const res = await fetch(`${API_BASE}/convert`, {
-    method: 'POST',
-    body: formData,
-  });
+  try {
+    const res = await fetch(`${API_BASE}/convert`, {
+      method: 'POST',
+      body: formData,
+      credentials: 'omit',
+    });
 
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.message || `Conversion failed: ${res.status}`);
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.message || `Conversion failed: ${res.status}`);
+    }
+
+    return await res.blob();
+  } catch (err: any) {
+    if (
+      err.name === 'TypeError' ||
+      err.message?.includes('NetworkError') ||
+      err.message?.includes('Failed to fetch')
+    ) {
+      throw new Error(
+        `Unable to reach backend conversion server (${getApiBase()}/convert). The server may be asleep or unreachable. You can still download the WebM video directly.`
+      );
+    }
+    throw err;
   }
-
-  return res.blob();
 }

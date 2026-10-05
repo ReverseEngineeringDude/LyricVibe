@@ -102,6 +102,7 @@ export const ExportModal: React.FC = () => {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [isConvertingMp4, setIsConvertingMp4] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [conversionError, setConversionError] = useState<string | null>(null);
 
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -120,6 +121,7 @@ export const ExportModal: React.FC = () => {
       setStatus('idle');
       setProgress(0);
       setErrorMessage(null);
+      setConversionError(null);
       setResultBlob(null);
       if (videoUrl) {
         URL.revokeObjectURL(videoUrl);
@@ -307,6 +309,7 @@ export const ExportModal: React.FC = () => {
   const handleConvertToMp4 = async () => {
     if (!resultBlob) return;
     setIsConvertingMp4(true);
+    setConversionError(null);
     try {
       const mp4Blob = await convertToMp4(resultBlob);
       const cleanTitle = (currentTrack.title || 'video').replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -320,7 +323,7 @@ export const ExportModal: React.FC = () => {
       URL.revokeObjectURL(url);
     } catch (err: any) {
       console.error('MP4 conversion error:', err);
-      alert('FFmpeg MP4 conversion failed: ' + (err.message || 'Unknown server error'));
+      setConversionError(err?.message || 'Server conversion failed.');
     } finally {
       setIsConvertingMp4(false);
     }
@@ -577,6 +580,25 @@ export const ExportModal: React.FC = () => {
               />
             </div>
 
+            {/* Conversion Error Notice */}
+            {conversionError && (
+              <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3 text-xs text-red-300 flex items-start gap-2.5 animate-fade-in">
+                <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <div className="font-semibold text-white">MP4 Conversion Notice</div>
+                  <div className="text-[11px] leading-relaxed text-red-200">{conversionError}</div>
+                  <div className="pt-0.5">
+                    <button
+                      onClick={handleDownloadWebm}
+                      className="text-brand-300 hover:text-white underline font-medium text-[11px]"
+                    >
+                      Download WebM Video directly instead &rarr;
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Action Buttons */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
               {/* Direct WebM Download */}
@@ -591,7 +613,7 @@ export const ExportModal: React.FC = () => {
                 </div>
               </button>
 
-              {/* FFmpeg MP4 Transcode */}
+              {/* FFmpeg MP4 Transcode / Direct MP4 */}
               <button
                 onClick={handleConvertToMp4}
                 disabled={isConvertingMp4}
@@ -603,8 +625,18 @@ export const ExportModal: React.FC = () => {
                   <FileVideo className="w-4 h-4 text-white" />
                 )}
                 <div className="text-left">
-                  <div className="font-semibold">{isConvertingMp4 ? 'Transcoding...' : 'Convert to MP4'}</div>
-                  <div className="text-[10px] text-white/70">Optimized for Status / Stories</div>
+                  <div className="font-semibold">
+                    {isConvertingMp4
+                      ? 'Transcoding...'
+                      : resultBlob?.type.includes('mp4')
+                      ? 'Download MP4'
+                      : 'Convert to MP4'}
+                  </div>
+                  <div className="text-[10px] text-white/70">
+                    {resultBlob?.type.includes('mp4')
+                      ? 'Direct MP4 export'
+                      : 'Optimized for Status / Stories'}
+                  </div>
                 </div>
               </button>
 
