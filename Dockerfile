@@ -24,6 +24,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 # Copy application source
 COPY backend/ backend/
+COPY frontend/dist/ frontend/dist/
 COPY wsgi.py ./
 
 # Create cache directory

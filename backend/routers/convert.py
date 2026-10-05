@@ -74,7 +74,7 @@ async def convert_to_mp4_endpoint(
     finally:
         await file.close()
 
-    # ffmpeg transcoding command
+    # ffmpeg transcoding command - optimized with ultrafast preset to finish in seconds and avoid gateway timeouts
     cmd = [
         "ffmpeg",
         "-y",
@@ -83,15 +83,17 @@ async def convert_to_mp4_endpoint(
         "-c:v",
         "libx264",
         "-preset",
-        "fast",
+        "ultrafast",
+        "-tune",
+        "fastdecode",
         "-crf",
-        "22",
+        "23",
         "-pix_fmt",
         "yuv420p",
         "-c:a",
         "aac",
         "-b:a",
-        "192k",
+        "128k",
         "-movflags",
         "+faststart",
         str(output_path),
