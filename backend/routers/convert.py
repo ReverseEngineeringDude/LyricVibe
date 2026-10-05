@@ -2,12 +2,33 @@ import os
 import shutil
 import subprocess
 import tempfile
+import time
 import uuid
 from pathlib import Path
 from fastapi import APIRouter, BackgroundTasks, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
 router = APIRouter(prefix="/api", tags=["convert"])
+
+
+def cleanup_old_temp_files(max_age_seconds: int = 300):
+    """
+    Scans the system temp directory and deletes any temporary conversion files older than
+    max_age_seconds (default 5 minutes). Ensures no video files persist on the server.
+    """
+    temp_dir = Path(tempfile.gettempdir())
+    now = time.time()
+    try:
+        for f in temp_dir.glob("lyricvibe_*"):
+            if f.is_file():
+                try:
+                    file_age = now - f.stat().st_mtime
+                    if file_age > max_age_seconds:
+                        f.unlink(missing_ok=True)
+                except Exception:
+                    pass
+    except Exception:
+        pass
 
 
 def _remove_files(*paths: Path):
@@ -27,8 +48,12 @@ async def convert_to_mp4_endpoint(
     """
     Converts uploaded WebM recording from browser MediaRecorder into H.264/AAC MP4
     optimized with faststart for WhatsApp, Instagram, iOS, and Android story sharing.
-    Deletes temporary files after the response is sent.
+    Deletes temporary files immediately after sending, and purges anything older than 5 minutes.
     """
+    # Enforce cleanup of any orphaned temporary files older than 5 minutes (300 seconds)
+    cleanup_old_temp_files(max_age_seconds=300)
+    background_tasks.add_task(cleanup_old_temp_files, 300)
+
     if not file.filename:
         raise HTTPException(status_code=400, detail={"error": "NO_FILE", "message": "No file uploaded."})
 
