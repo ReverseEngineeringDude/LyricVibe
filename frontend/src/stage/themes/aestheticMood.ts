@@ -22,6 +22,7 @@ export class AestheticMoodTheme implements StageTheme {
   // Layout & Spring States
   private cachedLayouts: LineLayout[] = [];
   private lastLayoutWidth = 0;
+  private lastFontName = '';
   private lineSprings: Map<number, LineSpring> = new Map();
 
   // Scroll physics
@@ -139,7 +140,7 @@ export class AestheticMoodTheme implements StageTheme {
     const { syncedLines, width, visualOptions } = state;
     const { fontSize, lineHeight, maxTextWidth, fontName } = this.getTypography(width, visualOptions);
 
-    ctx.font = `600 ${fontSize}px "${fontName}", sans-serif`;
+    ctx.font = `600 ${fontSize}px "${fontName}", "Noto Sans Malayalam", "Noto Sans", sans-serif`;
 
     const layouts: LineLayout[] = [];
     let currentY = 0;
@@ -228,7 +229,12 @@ export class AestheticMoodTheme implements StageTheme {
     }
 
     // 5. Compute & Cache Text Layouts
-    if (this.lastLayoutWidth !== width || this.cachedLayouts.length !== state.syncedLines.length) {
+    if (
+      this.lastLayoutWidth !== width ||
+      this.cachedLayouts.length !== state.syncedLines.length ||
+      this.lastFontName !== visualOptions.font
+    ) {
+      this.lastFontName = visualOptions.font;
       this.computeLineLayouts(ctx, state);
     }
 
@@ -544,7 +550,7 @@ export class AestheticMoodTheme implements StageTheme {
       ctx.translate(alignX, lineCenterY);
       ctx.scale(spring.scale, spring.scale);
 
-      ctx.font = `${isActive ? '700' : '600'} ${fontSize}px "${fontName}", sans-serif`;
+      ctx.font = `${isActive ? '700' : '600'} ${fontSize}px "${fontName}", "Noto Sans Malayalam", "Noto Sans", sans-serif`;
 
       const blockTotalH = layout.wrappedLines.length * lineHeight;
       const startLocalY = -blockTotalH / 2 + lineHeight / 2;

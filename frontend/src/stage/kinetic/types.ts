@@ -81,4 +81,5 @@ export interface KineticOptions {
   beatReactions: boolean;
   backgroundType: 'mesh' | 'cover' | 'custom' | 'solid' | 'gradient';
   fontSet: 'modern' | 'classic' | 'cyber';
+  customFont?: string;
 }

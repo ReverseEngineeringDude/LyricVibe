@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { LyricLine } from '@/lib/lrcParser';
 import { LyricCandidate } from '@/lib/api';
 
-export type FontChoice = 'Inter' | 'Playfair Display' | 'Syne';
+export type FontChoice = 'Inter' | 'Playfair Display' | 'Syne' | string;
 export type TextAlign = 'center' | 'left';
 export type BackgroundStyle = 'mesh' | 'cover' | 'custom';
 

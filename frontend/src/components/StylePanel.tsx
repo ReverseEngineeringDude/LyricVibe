@@ -1,5 +1,5 @@
-import React, { useRef } from 'react';
-import { useSettingsStore, FontChoice, TextAlign, BackgroundStyle } from '@/store/useSettingsStore';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
+import { useSettingsStore, TextAlign, BackgroundStyle } from '@/store/useSettingsStore';
 import {
   Palette,
   Type,
@@ -15,8 +15,16 @@ import {
   Image as ImageIcon,
   Eye,
   Check,
+  Plus,
 } from 'lucide-react';
 import { OffsetControl } from './OffsetControl';
+import {
+  CustomFont,
+  fetchAllAvailableFonts,
+  loadAndRegisterFont,
+  registerUploadedFontFile,
+  LANGUAGE_INFO,
+} from '@/lib/fontManager';
 
 const KINETIC_HIGHLIGHTS = [
   { id: '#00f0ff', label: 'Cyan', color: '#00f0ff', safeBadge: 'Colorblind Safe' },
@@ -39,6 +47,49 @@ export const StylePanel: React.FC = () => {
   const setKineticStyle = useSettingsStore((s) => s.setKineticStyle);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const fontFileInputRef = useRef<HTMLInputElement>(null);
+
+  const [customFonts, setCustomFonts] = useState<CustomFont[]>([]);
+  const [selectedLang, setSelectedLang] = useState<string>('all');
+  const [isFontLoading, setIsFontLoading] = useState<boolean>(false);
+
+  useEffect(() => {
+    let mounted = true;
+    fetchAllAvailableFonts().then((fonts) => {
+      if (!mounted) return;
+      setCustomFonts(fonts);
+      // Pre-register fonts in document.fonts
+      fonts.forEach((f) => loadAndRegisterFont(f));
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const handleSelectFont = async (fontFamily: string, customFontObj?: CustomFont) => {
+    if (customFontObj) {
+      setIsFontLoading(true);
+      await loadAndRegisterFont(customFontObj);
+      setIsFontLoading(false);
+    }
+    setVisualOptions({ font: fontFamily });
+  };
+
+  const handleFontUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setIsFontLoading(true);
+      const added = await registerUploadedFontFile(file);
+      setCustomFonts((prev) => [added, ...prev.filter((f) => f.family !== added.family)]);
+      setVisualOptions({ font: added.family });
+    } catch (err) {
+      alert('Failed to load font file: ' + (err as Error).message);
+    } finally {
+      setIsFontLoading(false);
+    }
+    e.target.value = '';
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -86,11 +137,43 @@ export const StylePanel: React.FC = () => {
     reader.readAsDataURL(file);
   };
 
-  const fonts: { id: FontChoice; label: string; class: string }[] = [
-    { id: 'Syne', label: 'Syne Bold', class: 'font-syne' },
-    { id: 'Playfair Display', label: 'Playfair Serif', class: 'font-serif' },
-    { id: 'Inter', label: 'Inter Modern', class: 'font-sans' },
+  const standardFonts = [
+    { id: 'Syne', label: 'Syne', class: 'font-syne', langCode: 'EN', sample: 'Modern Display' },
+    { id: 'Playfair Display', label: 'Playfair', class: 'font-serif', langCode: 'EN', sample: 'Classic Serif' },
+    { id: 'Inter', label: 'Inter', class: 'font-sans', langCode: 'EN', sample: 'Clean Sans' },
   ];
+
+  const availableLanguages = useMemo(() => {
+    const langs = new Map<string, string>();
+    langs.set('all', 'All');
+
+    const codes = new Set<string>();
+    customFonts.forEach((f) => {
+      if (f.langCode) codes.add(f.langCode);
+    });
+
+    const sortedCodes = Array.from(codes).sort((a, b) => {
+      if (a === 'ML') return -1;
+      if (b === 'ML') return 1;
+      if (a === 'EN') return -1;
+      if (b === 'EN') return 1;
+      return a.localeCompare(b);
+    });
+
+    sortedCodes.forEach((code) => {
+      const info = LANGUAGE_INFO[code];
+      const label = info ? `${info.native} (${code})` : code;
+      langs.set(code, label);
+    });
+
+    return Array.from(langs.entries());
+  }, [customFonts]);
+
+  const displayedStandard = selectedLang === 'all' || selectedLang === 'EN' ? standardFonts : [];
+  const displayedCustom = customFonts.filter((f) => {
+    if (selectedLang === 'all') return true;
+    return f.langCode === selectedLang;
+  });
 
   return (
     <div className="bg-surface/90 backdrop-blur-md rounded-2xl border border-surfaceBorder p-4 space-y-4 text-xs text-gray-300 shadow-xl">
@@ -228,26 +311,124 @@ export const StylePanel: React.FC = () => {
       </div>
 
       {/* Typography selection */}
-      <div className="space-y-1.5">
-        <label className="text-gray-400 text-[11px] font-medium flex items-center gap-1.5">
-          <Type className="w-3.5 h-3.5" />
-          Lyric Typography
-        </label>
-        <div className="grid grid-cols-3 gap-1.5">
-          {fonts.map((f) => (
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <label className="text-gray-400 text-[11px] font-medium flex items-center gap-1.5">
+            <Type className="w-3.5 h-3.5 text-brand-400" />
+            <span>Lyric Typography</span>
+            {isFontLoading && (
+              <span className="text-[10px] text-brand-400 animate-pulse font-normal">Loading font...</span>
+            )}
+          </label>
+
+          <button
+            onClick={() => fontFileInputRef.current?.click()}
+            className="text-[10px] text-brand-400 hover:text-brand-300 flex items-center gap-1 px-2 py-0.5 rounded-lg bg-brand-500/10 border border-brand-500/20 hover:border-brand-500/40 transition-colors"
+            title="Upload any TTF / OTF font (e.g. ML_*.ttf for Malayalam)"
+          >
+            <Plus className="w-3 h-3" />
+            <span>Add Font (.ttf)</span>
+          </button>
+          <input
+            ref={fontFileInputRef}
+            type="file"
+            accept=".ttf,.otf,.woff,.woff2"
+            className="hidden"
+            onChange={handleFontUpload}
+          />
+        </div>
+
+        {/* Language filter pills */}
+        <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-none text-[10px]">
+          {availableLanguages.map(([code, label]) => (
             <button
-              key={f.id}
-              onClick={() => setVisualOptions({ font: f.id })}
-              className={`py-2 px-1.5 rounded-xl border text-center transition-all ${
-                visualOptions.font === f.id
-                  ? 'bg-brand-500/20 border-brand-500/50 text-white font-semibold'
-                  : 'bg-surfaceLight/40 border-surfaceBorder hover:bg-surfaceLight hover:text-white'
+              key={code}
+              onClick={() => setSelectedLang(code)}
+              className={`px-2 py-0.5 rounded-lg whitespace-nowrap transition-colors ${
+                selectedLang === code
+                  ? 'bg-brand-500 text-white font-medium shadow-sm'
+                  : 'bg-surfaceLight/50 text-gray-400 hover:text-white border border-surfaceBorder/40'
               }`}
             >
-              <span className={`block text-xs truncate ${f.class}`}>{f.label}</span>
+              {label}
             </button>
           ))}
         </div>
+
+        {/* Font cards grid */}
+        <div className="grid grid-cols-2 gap-1.5 max-h-48 overflow-y-auto pr-0.5">
+          {displayedStandard.map((f) => {
+            const isSelected = visualOptions.font === f.id;
+            return (
+              <button
+                key={f.id}
+                onClick={() => handleSelectFont(f.id)}
+                className={`py-2 px-2.5 rounded-xl border text-left transition-all relative ${
+                  isSelected
+                    ? 'bg-brand-500/20 border-brand-500 text-white shadow-sm ring-1 ring-brand-500/40'
+                    : 'bg-surfaceLight/40 border-surfaceBorder hover:bg-surfaceLight hover:text-white'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className={`text-xs font-semibold truncate ${f.class || ''}`}>{f.label}</span>
+                  <span className="text-[9px] px-1 rounded bg-black/40 text-gray-400 font-mono">EN</span>
+                </div>
+                <span className="block text-[10px] text-gray-400 truncate mt-0.5">{f.sample}</span>
+              </button>
+            );
+          })}
+
+          {displayedCustom.map((f) => {
+            const isSelected = visualOptions.font === f.family;
+            const scriptSample =
+              f.langCode === 'ML'
+                ? 'മലയാളം ലിപി'
+                : f.langCode === 'TA'
+                ? 'தமிழ் பாடல்'
+                : f.langCode === 'HI'
+                ? 'हिन्दी धुन'
+                : f.nativeName || f.name;
+
+            return (
+              <button
+                key={f.family}
+                onClick={() => handleSelectFont(f.family, f)}
+                className={`py-2 px-2.5 rounded-xl border text-left transition-all relative ${
+                  isSelected
+                    ? 'bg-brand-500/20 border-brand-500 text-white shadow-sm ring-1 ring-brand-500/40'
+                    : 'bg-surfaceLight/40 border-surfaceBorder hover:bg-surfaceLight hover:text-white'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span
+                    className="text-xs font-semibold truncate"
+                    style={{ fontFamily: `"${f.family}", sans-serif` }}
+                  >
+                    {f.name}
+                  </span>
+                  <span
+                    className={`text-[9px] px-1 rounded font-mono font-medium ${
+                      f.langCode === 'ML'
+                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                        : 'bg-black/40 text-gray-400'
+                    }`}
+                  >
+                    {f.langCode}
+                  </span>
+                </div>
+                <span
+                  className="block text-[10px] text-gray-400 truncate mt-0.5"
+                  style={{ fontFamily: `"${f.family}", sans-serif` }}
+                >
+                  {scriptSample}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-[9px] text-gray-400 leading-tight">
+          Fonts in <code className="text-gray-300">fonts/</code> folder (e.g. <code className="text-gray-300">ML_*.ttf</code>) are auto-detected and rendered with genuine native glyphs.
+        </p>
       </div>
 
       {/* Alignment & Background mode */}

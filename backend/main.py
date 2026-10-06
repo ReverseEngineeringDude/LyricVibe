@@ -143,6 +143,42 @@ async def debug_test_extract(video_id: str):
     }
 
 
+# Serve custom language fonts from fonts/ directory
+FONTS_DIR = Path(__file__).resolve().parent.parent / "fonts"
+if not FONTS_DIR.exists():
+    FONTS_DIR = FRONTEND_DIST / "fonts"
+
+if FONTS_DIR.exists():
+    app.mount("/fonts", StaticFiles(directory=FONTS_DIR), name="fonts")
+
+
+@app.get("/api/fonts")
+async def get_fonts():
+    """
+    Returns list of all available fonts inside fonts/ directory.
+    Files follow pattern: [LANG_CODE]_[FontName].[ttf|otf|woff2|woff] (e.g. ML_Manjari.ttf).
+    """
+    if not FONTS_DIR.exists():
+        return []
+    valid_exts = {".ttf", ".otf", ".woff", ".woff2"}
+    results = []
+    try:
+        for p in sorted(FONTS_DIR.iterdir()):
+            if p.is_file() and p.suffix.lower() in valid_exts:
+                filename = p.name
+                parts = filename.split("_", 1)
+                lang_code = parts[0].upper() if len(parts) > 1 else "OTHER"
+                results.append({
+                    "filename": filename,
+                    "langCode": lang_code,
+                    "url": f"/fonts/{filename}",
+                })
+    except Exception:
+        pass
+    return results
+
+
+
 # Serve static frontend in production if built
 if FRONTEND_DIST.exists() and (FRONTEND_DIST / "index.html").exists():
     app.mount("/assets", StaticFiles(directory=FRONTEND_DIST / "assets"), name="assets")

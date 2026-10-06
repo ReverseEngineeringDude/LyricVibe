@@ -156,18 +156,21 @@ export class KineticTheme implements StageTheme {
     return phrases;
   }
 
+  private lastCustomFont = '';
+
   private getLayout(
     ctx: CanvasRenderingContext2D,
     phrase: KineticPhrase,
     w: number,
     h: number,
-    intensity: 'calm' | 'balanced' | 'wild' = 'balanced'
+    intensity: 'calm' | 'balanced' | 'wild' = 'balanced',
+    customFont?: string
   ): PhraseLayout {
-    const key = `${phrase.index}:${w}:${h}:${intensity}`;
+    const key = `${phrase.index}:${w}:${h}:${intensity}:${customFont || ''}`;
     const cached = this.layoutCache.get(key);
     if (cached) return cached;
 
-    const layout = computePhraseLayout(ctx, phrase, w, h, intensity);
+    const layout = computePhraseLayout(ctx, phrase, w, h, intensity, customFont);
     this.layoutCache.set(key, layout);
     return layout;
   }
@@ -181,6 +184,11 @@ export class KineticTheme implements StageTheme {
     const { width: w, height: h, currentTime: t, track, palette, visualOptions, prefersReducedMotion } = state;
     if (w <= 0 || h <= 0) return;
 
+    if (visualOptions.font !== this.lastCustomFont) {
+      this.lastCustomFont = visualOptions.font;
+      this.layoutCache.clear();
+    }
+
     if (track?.thumbnail && track.thumbnail !== this.currentCoverUrl) {
       this.updateCoverImage(track.thumbnail);
     }
@@ -192,6 +200,7 @@ export class KineticTheme implements StageTheme {
       beatReactions: (visualOptions as any).kineticBeats !== false,
       backgroundType: (visualOptions.backgroundStyle as any) || 'mesh',
       fontSet: 'modern',
+      customFont: visualOptions.font,
     };
 
     const pal: ColorPalette = palette || {
@@ -278,8 +287,8 @@ export class KineticTheme implements StageTheme {
         // Smoothstep easing
         const ease = u * u * (3 - 2 * u);
 
-        const curLayout = this.getLayout(ctx, curPhrase, w, h, kineticOpts.intensity);
-        const nextLayout = this.getLayout(ctx, nextPhrase, w, h, kineticOpts.intensity);
+        const curLayout = this.getLayout(ctx, curPhrase, w, h, kineticOpts.intensity, visualOptions.font);
+        const nextLayout = this.getLayout(ctx, nextPhrase, w, h, kineticOpts.intensity, visualOptions.font);
 
         // Required vertical clearance distance so bounding boxes NEVER collide or overlap
         const slideDist = (curLayout.height + nextLayout.height) / 2 + 60;
@@ -322,7 +331,7 @@ export class KineticTheme implements StageTheme {
       if (t > fadeStart) {
         const u = Math.min(1, Math.max(0, (t - fadeStart) / 0.6));
         const ease = u * u * (3 - 2 * u);
-        const lastLayout = this.getLayout(ctx, curPhrase, w, h, kineticOpts.intensity);
+        const lastLayout = this.getLayout(ctx, curPhrase, w, h, kineticOpts.intensity, visualOptions.font);
         phrasesToDraw.push({
           phrase: curPhrase,
           offsetY: -ease * (lastLayout.height / 2 + 40),
@@ -344,7 +353,7 @@ export class KineticTheme implements StageTheme {
       const enterStart = firstPhrase.start - TRANSITION_DUR;
       const u = Math.min(1, Math.max(0, (t - enterStart) / TRANSITION_DUR));
       const ease = u * u * (3 - 2 * u);
-      const firstLayout = this.getLayout(ctx, firstPhrase, w, h, kineticOpts.intensity);
+      const firstLayout = this.getLayout(ctx, firstPhrase, w, h, kineticOpts.intensity, visualOptions.font);
       const slideInDist = firstLayout.height / 2 + 50;
       if (phrasesToDraw.length > 0 && phrasesToDraw[0].phrase === firstPhrase) {
         phrasesToDraw[0].offsetY = (1.0 - ease) * slideInDist;
@@ -365,7 +374,7 @@ export class KineticTheme implements StageTheme {
     // 6. Draw Phrases with Smooth Transition Transforms
     for (const item of phrasesToDraw) {
       if (item.opacity <= 0.01) continue;
-      const layout = this.getLayout(ctx, item.phrase, w, h, kineticOpts.intensity);
+      const layout = this.getLayout(ctx, item.phrase, w, h, kineticOpts.intensity, visualOptions.font);
       this.drawPhraseLayout(
         ctx,
         item.phrase,

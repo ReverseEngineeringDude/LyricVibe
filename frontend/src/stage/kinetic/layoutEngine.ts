@@ -28,7 +28,10 @@ export function segmentGraphemes(text: string): { graphemes: string[]; isSafeToS
   };
 }
 
-export function getFontFamilyString(category: 'grotesque' | 'serif' | 'mono'): string {
+export function getFontFamilyString(category: 'grotesque' | 'serif' | 'mono', customFont?: string): string {
+  if (customFont) {
+    return `"${customFont}", "Noto Sans Malayalam", "Noto Sans", sans-serif`;
+  }
   switch (category) {
     case 'grotesque':
       return '"Anton", "Archivo Black", "Syne", "Noto Sans", "Noto Sans Malayalam", "Noto Sans Devanagari", sans-serif';
@@ -67,7 +70,8 @@ export function computePhraseLayout(
   phrase: KineticPhrase,
   canvasWidth: number,
   canvasHeight: number,
-  intensity: 'calm' | 'balanced' | 'wild' = 'balanced'
+  intensity: 'calm' | 'balanced' | 'wild' = 'balanced',
+  customFont?: string
 ): PhraseLayout {
   const isPortrait = canvasHeight > canvasWidth;
   const isWild = intensity === 'wild';
@@ -94,13 +98,13 @@ export function computePhraseLayout(
       const w = words[0];
       const text = getWordDisplayText(w);
       let fontSize = Math.min(canvasWidth * 0.28, canvasHeight * 0.24);
-      let font = `900 ${fontSize}px ${getFontFamilyString(w.fontCategory)}`;
+      let font = `900 ${fontSize}px ${getFontFamilyString(w.fontCategory, customFont)}`;
       let textW = measureTextCached(ctx, text, font);
 
       // Clamp if text exceeds safe width
       if (textW > maxSafeWidth) {
         fontSize *= maxSafeWidth / textW;
-        font = `900 ${fontSize}px ${getFontFamilyString(w.fontCategory)}`;
+        font = `900 ${fontSize}px ${getFontFamilyString(w.fontCategory, customFont)}`;
         textW = measureTextCached(ctx, text, font);
       }
 
@@ -131,8 +135,8 @@ export function computePhraseLayout(
       const size1 = baseSize * (w1.importance > 0.6 ? 1.5 : 1.2);
       const size2 = baseSize * (w2.importance > 0.6 ? 1.5 : 1.2);
 
-      const font1 = `900 ${size1}px ${getFontFamilyString(w1.fontCategory)}`;
-      const font2 = `900 ${size2}px ${getFontFamilyString(w2.fontCategory)}`;
+      const font1 = `900 ${size1}px ${getFontFamilyString(w1.fontCategory, customFont)}`;
+      const font2 = `900 ${size2}px ${getFontFamilyString(w2.fontCategory, customFont)}`;
 
       const tw1 = measureTextCached(ctx, t1, font1);
       const tw2 = measureTextCached(ctx, t2, font2);
@@ -179,12 +183,12 @@ export function computePhraseLayout(
       const heroWord = words[heroIdx];
       const heroText = getWordDisplayText(heroWord);
       let heroSize = baseSize * 1.75;
-      let heroFont = `900 ${heroSize}px ${getFontFamilyString(heroWord.fontCategory)}`;
+      let heroFont = `900 ${heroSize}px ${getFontFamilyString(heroWord.fontCategory, customFont)}`;
       let heroW = measureTextCached(ctx, heroText, heroFont);
 
       if (heroW > maxSafeWidth) {
         heroSize *= maxSafeWidth / heroW;
-        heroFont = `900 ${heroSize}px ${getFontFamilyString(heroWord.fontCategory)}`;
+        heroFont = `900 ${heroSize}px ${getFontFamilyString(heroWord.fontCategory, customFont)}`;
         heroW = measureTextCached(ctx, heroText, heroFont);
       }
 
@@ -210,7 +214,7 @@ export function computePhraseLayout(
         const subSize = baseSize * 0.75;
         const wordMetrics = subWords.map((bw) => {
           const t = getWordDisplayText(bw);
-          const font = `700 ${subSize}px ${getFontFamilyString(bw.fontCategory)}`;
+          const font = `700 ${subSize}px ${getFontFamilyString(bw.fontCategory, customFont)}`;
           return {
             w: bw,
             t,
@@ -268,7 +272,7 @@ export function computePhraseLayout(
       for (let i = 0; i < numWords; i++) {
         const w = words[i];
         const t = getWordDisplayText(w);
-        const font = `800 ${fontSize}px ${getFontFamilyString(w.fontCategory)}`;
+        const font = `800 ${fontSize}px ${getFontFamilyString(w.fontCategory, customFont)}`;
         const tw = measureTextCached(ctx, t, font);
         const seg = segmentGraphemes(t);
 
@@ -306,7 +310,7 @@ export function computePhraseLayout(
 
       for (const w of words) {
         const t = getWordDisplayText(w);
-        const font = `800 ${baseSize}px ${getFontFamilyString(w.fontCategory)}`;
+        const font = `800 ${baseSize}px ${getFontFamilyString(w.fontCategory, customFont)}`;
         const wordW = measureTextCached(ctx, t, font);
         const gap = baseSize * 0.35;
 
@@ -341,7 +345,7 @@ export function computePhraseLayout(
 
         const wordMetrics = l.map((w, wIdx) => {
           const t = getWordDisplayText(w);
-          const font = `800 ${lh * 0.9}px ${getFontFamilyString(w.fontCategory)}`;
+          const font = `800 ${lh * 0.9}px ${getFontFamilyString(w.fontCategory, customFont)}`;
           return {
             w,
             t,
