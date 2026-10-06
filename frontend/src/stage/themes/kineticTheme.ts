@@ -202,6 +202,10 @@ export class KineticTheme implements StageTheme {
       isDark: true,
     };
 
+    // Accessible highlight color resolution (defaulting to high-contrast cyan #00f0ff)
+    const userHighlight = visualOptions.kineticHighlightColor || '#00f0ff';
+    const highlightColor = userHighlight === 'dynamic' ? (pal.accent || '#00f0ff') : userHighlight;
+
     // 1. Render Background
     this.drawBackground(ctx, w, h, pal, visualOptions.backgroundStyle);
 
@@ -235,13 +239,13 @@ export class KineticTheme implements StageTheme {
     const firstPhrase = phrases[0];
     const enterStart = firstPhrase.start - TRANSITION_DUR;
     if (t < enterStart) {
-      this.drawIntroState(ctx, w, h, track, pal, firstPhrase.start - t, 1.0);
+      this.drawIntroState(ctx, w, h, track, pal, firstPhrase.start - t, 1.0, highlightColor);
       if (visualOptions.watermark) this.drawWatermark(ctx, w);
       return;
     } else if (t < firstPhrase.start) {
       const u = (t - enterStart) / TRANSITION_DUR;
       const ease = u * u * (3 - 2 * u);
-      this.drawIntroState(ctx, w, h, track, pal, firstPhrase.start - t, Math.max(0, 1.0 - ease));
+      this.drawIntroState(ctx, w, h, track, pal, firstPhrase.start - t, Math.max(0, 1.0 - ease), highlightColor);
     }
 
     // Identify active phrase index
@@ -373,7 +377,8 @@ export class KineticTheme implements StageTheme {
         item.opacity,
         item.scale,
         prefersReducedMotion,
-        kineticOpts
+        kineticOpts,
+        highlightColor
       );
     }
 
@@ -396,7 +401,8 @@ export class KineticTheme implements StageTheme {
     phraseOpacity: number,
     phraseScale: number,
     prefersReducedMotion: boolean,
-    kineticOpts: KineticOptions
+    kineticOpts: KineticOptions,
+    highlightColor = '#00f0ff'
   ) {
     ctx.save();
     ctx.translate(0, phraseOffsetY);
@@ -424,12 +430,12 @@ export class KineticTheme implements StageTheme {
       const displayText = getWordDisplayText(box.word);
 
       // Color mapping:
-      // - Sung: vivid accent (gold / electric pink / theme accent)
+      // - Sung: vivid accessible highlight (Electric Cyan #00f0ff by default, or user chosen)
       // - Past: clean solid text (white)
       // - Upcoming: soft secondary translucent tone
       let textColor = '#ffffff';
       if (isSung) {
-        textColor = pal.accent || '#facc15';
+        textColor = highlightColor;
       } else if (isPast) {
         textColor = '#f8fafc';
       } else {
@@ -442,13 +448,29 @@ export class KineticTheme implements StageTheme {
 
       // Render Word Fill or Outline
       if (box.word.styleType === 'outline') {
+        if (isSung) {
+          // Double stroke for maximum readability and accessibility across all vision types
+          ctx.save();
+          ctx.strokeStyle = 'rgba(0, 0, 0, 0.85)';
+          ctx.lineWidth = Math.max(3.5, box.fontSize * (isWild ? 0.085 : 0.065));
+          ctx.strokeText(displayText, 0, 0);
+          ctx.restore();
+        }
         ctx.strokeStyle = textColor;
         ctx.lineWidth = Math.max(2.5, box.fontSize * (isWild ? 0.065 : 0.045));
         ctx.strokeText(displayText, 0, 0);
       } else {
-        // Glow shadow
+        // High-contrast background shadow/halo for sung word so it pops on ANY background
         if (isSung) {
-          ctx.shadowColor = pal.accent || '#facc15';
+          // 1. Contrast dark halo to guarantee distinction against any background
+          ctx.save();
+          ctx.strokeStyle = 'rgba(0, 0, 0, 0.75)';
+          ctx.lineWidth = Math.max(3, box.fontSize * 0.05);
+          ctx.strokeText(displayText, 0, 0);
+          ctx.restore();
+
+          // 2. Glow shadow in chosen highlight color
+          ctx.shadowColor = highlightColor;
           const blurMult = isWild ? 0.48 : isCalm ? 0.18 : 0.32;
           ctx.shadowBlur = Math.min(36, box.fontSize * blurMult);
         }
@@ -480,8 +502,8 @@ export class KineticTheme implements StageTheme {
           const sx = Math.cos(sparkAngle) * sparkDist;
           const sy = Math.sin(sparkAngle) * (box.h * 0.42);
           ctx.save();
-          ctx.fillStyle = pal.accent || '#facc15';
-          ctx.shadowColor = pal.accent || '#facc15';
+          ctx.fillStyle = highlightColor;
+          ctx.shadowColor = highlightColor;
           ctx.shadowBlur = 8;
           ctx.beginPath();
           ctx.arc(sx, sy, 2.0, 0, Math.PI * 2);
@@ -494,16 +516,16 @@ export class KineticTheme implements StageTheme {
       if (isSung) {
         const sweepW = box.w * anim.sungProgress;
         if (isWild) {
-          ctx.shadowColor = pal.accent || '#facc15';
+          ctx.shadowColor = highlightColor;
           ctx.shadowBlur = 14;
-          ctx.fillStyle = pal.accent || '#facc15';
+          ctx.fillStyle = highlightColor;
           ctx.fillRect(-box.w / 2, box.h * 0.44, sweepW, Math.max(4, box.fontSize * 0.08));
           ctx.shadowBlur = 0;
         } else if (isCalm) {
-          ctx.fillStyle = colorWithAlpha(pal.accent || '#facc15', 0.65);
+          ctx.fillStyle = colorWithAlpha(highlightColor, 0.75);
           ctx.fillRect(-box.w / 2, box.h * 0.44, sweepW, Math.max(2, box.fontSize * 0.038));
         } else {
-          ctx.fillStyle = pal.accent || '#facc15';
+          ctx.fillStyle = highlightColor;
           ctx.fillRect(-box.w / 2, box.h * 0.44, sweepW, Math.max(3, box.fontSize * 0.055));
         }
       }
@@ -583,7 +605,8 @@ export class KineticTheme implements StageTheme {
     track: any,
     pal: ColorPalette,
     countdown: number,
-    opacity = 1.0
+    opacity = 1.0,
+    highlightColor = '#00f0ff'
   ) {
     if (opacity <= 0.001) return;
     ctx.save();
@@ -599,7 +622,7 @@ export class KineticTheme implements StageTheme {
     ctx.fillText(title, w / 2, h / 2 - 20);
 
     ctx.font = `italic 600 18px "Playfair Display", serif`;
-    ctx.fillStyle = pal.accent || '#facc15';
+    ctx.fillStyle = highlightColor;
     ctx.fillText(artist, w / 2, h / 2 + 22);
 
     if (countdown > 0.5 && countdown < 10) {

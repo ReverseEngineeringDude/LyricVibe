@@ -49,6 +49,37 @@ export const KineticOverlay: React.FC<KineticOverlayProps> = ({ visible = true }
               </button>
             ))}
           </div>
+
+          {/* Quick Highlight Color Switcher */}
+          <div
+            className="hidden sm:flex items-center gap-1.5 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/10 text-[10px]"
+            title="Lyric Highlight Accent"
+          >
+            <span className="text-[10px] text-gray-400 font-medium pl-0.5">Accent:</span>
+            {[
+              { id: '#00f0ff', color: '#00f0ff', label: 'Cyan (Colorblind Safe)' },
+              { id: '#ffd600', color: '#ffd600', label: 'Gold' },
+              { id: '#ff2e93', color: '#ff2e93', label: 'Pink' },
+              { id: '#00ff88', color: '#00ff88', label: 'Mint' },
+              { id: '#a855f7', color: '#a855f7', label: 'Purple' },
+            ].map((hl) => {
+              const currentHl = visualOptions.kineticHighlightColor || '#00f0ff';
+              const isSelected = currentHl === hl.id;
+              return (
+                <button
+                  key={hl.id}
+                  onClick={() => setVisualOptions({ kineticHighlightColor: hl.id })}
+                  title={hl.label}
+                  className={`w-3.5 h-3.5 rounded-full transition-all ${
+                    isSelected
+                      ? 'scale-125 ring-2 ring-white shadow-sm'
+                      : 'opacity-60 hover:opacity-100 hover:scale-110'
+                  }`}
+                  style={{ backgroundColor: hl.color }}
+                />
+              );
+            })}
+          </div>
         </div>
 
         {/* Exit Button */}

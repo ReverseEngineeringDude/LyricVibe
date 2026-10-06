@@ -19,6 +19,7 @@ export interface VisualOptions {
   kineticCamera?: boolean;
   kineticBeats?: boolean;
   kineticFontSet?: 'modern' | 'classic' | 'cyber';
+  kineticHighlightColor?: string;
 }
 
 interface SettingsState {
@@ -122,6 +123,7 @@ function loadVisualOptions(): VisualOptions {
     kineticCamera: true,
     kineticBeats: true,
     kineticFontSet: 'modern',
+    kineticHighlightColor: '#00f0ff',
   };
   try {
     const raw = localStorage.getItem(STORAGE_KEY_VISUALS);

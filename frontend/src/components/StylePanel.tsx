@@ -13,8 +13,19 @@ import {
   Upload,
   Trash2,
   Image as ImageIcon,
+  Eye,
+  Check,
 } from 'lucide-react';
 import { OffsetControl } from './OffsetControl';
+
+const KINETIC_HIGHLIGHTS = [
+  { id: '#00f0ff', label: 'Cyan', color: '#00f0ff', safeBadge: 'Colorblind Safe' },
+  { id: '#ffd600', label: 'Gold', color: '#ffd600' },
+  { id: '#ff2e93', label: 'Pink', color: '#ff2e93' },
+  { id: '#00ff88', label: 'Mint', color: '#00ff88' },
+  { id: '#a855f7', label: 'Purple', color: '#a855f7' },
+  { id: 'dynamic', label: 'Dynamic', color: 'dynamic' },
+];
 
 export const StylePanel: React.FC = () => {
   const visualOptions = useSettingsStore((s) => s.visualOptions);
@@ -167,6 +178,50 @@ export const StylePanel: React.FC = () => {
                 <span>Beat Punches</span>
                 <span className="font-bold">{visualOptions.kineticBeats !== false ? 'ON' : 'OFF'}</span>
               </button>
+            </div>
+
+            {/* Lyric Highlight Color Accent (Accessible / Colorblind-Safe) */}
+            <div className="pt-1.5 border-t border-white/10">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-gray-300 font-medium flex items-center gap-1.5 text-[10px]">
+                  <Palette className="w-3 h-3 text-cyan-400" />
+                  Highlight Color Accent
+                </span>
+                <span className="text-[9px] text-cyan-400/90 font-mono flex items-center gap-0.5 bg-cyan-950/60 px-1.5 py-0.5 rounded border border-cyan-800/50">
+                  <Eye className="w-2.5 h-2.5" />
+                  Colorblind Optimized
+                </span>
+              </div>
+              <div className="grid grid-cols-6 gap-1.5">
+                {KINETIC_HIGHLIGHTS.map((hl) => {
+                  const currentHl = visualOptions.kineticHighlightColor || '#00f0ff';
+                  const isSelected = currentHl === hl.id;
+                  return (
+                    <button
+                      key={hl.id}
+                      onClick={() => setVisualOptions({ kineticHighlightColor: hl.id })}
+                      title={`${hl.label} ${hl.safeBadge ? `• ${hl.safeBadge}` : ''}`}
+                      className={`h-7 rounded-lg border flex flex-col items-center justify-center relative transition-all ${
+                        isSelected
+                          ? 'border-white ring-2 ring-cyan-400/50 scale-105 bg-white/10'
+                          : 'border-white/10 hover:border-white/30 bg-black/20'
+                      }`}
+                    >
+                      {hl.id === 'dynamic' ? (
+                        <span className="w-3.5 h-3.5 rounded-full bg-gradient-to-tr from-amber-400 via-pink-500 to-indigo-500 shadow-sm" />
+                      ) : (
+                        <span
+                          className="w-3.5 h-3.5 rounded-full shadow-sm"
+                          style={{ backgroundColor: hl.color }}
+                        />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-[9px] text-gray-400 mt-1.5 leading-tight">
+                Electric Cyan is tuned for universal high contrast across red-green and blue-yellow vision deficiencies.
+              </p>
             </div>
           </div>
         )}
