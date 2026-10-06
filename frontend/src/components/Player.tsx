@@ -50,6 +50,10 @@ export const Player: React.FC = () => {
 
   const toggleQueue = useSettingsStore((s) => s.toggleQueue);
   const isQueueOpen = useSettingsStore((s) => s.isQueueOpen);
+  const isMobileMenuOpen = useSettingsStore((s) => s.isMobileMenuOpen);
+  const toggleMobileMenu = useSettingsStore((s) => s.toggleMobileMenu);
+  const mobileMenuTab = useSettingsStore((s) => s.mobileMenuTab);
+  const setMobileMenuTab = useSettingsStore((s) => s.setMobileMenuTab);
   const toggleClipPicker = useSettingsStore((s) => s.toggleClipPicker);
   const toggleStoryFraming = useSettingsStore((s) => s.toggleStoryFraming);
   const storyFramingMode = useSettingsStore((s) => s.storyFramingMode);
@@ -385,9 +389,16 @@ export const Player: React.FC = () => {
 
             {/* Queue Toggle */}
             <button
-              onClick={() => toggleQueue()}
+              onClick={() => {
+                if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+                  setMobileMenuTab('queue');
+                  toggleMobileMenu(true);
+                } else {
+                  toggleQueue();
+                }
+              }}
               className={`p-1.5 sm:p-2 rounded-xl border transition-colors shrink-0 ${
-                isQueueOpen
+                isQueueOpen || (isMobileMenuOpen && mobileMenuTab === 'queue')
                   ? 'bg-brand-500/20 border-brand-500/50 text-brand-400'
                   : 'bg-surfaceLight/40 border-surfaceBorder text-gray-400 hover:text-white'
               }`}

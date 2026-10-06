@@ -42,6 +42,8 @@ interface SettingsState {
   isExportOpen: boolean;
   isQueueOpen: boolean;
   isSearchOpen: boolean;
+  isMobileMenuOpen: boolean;
+  mobileMenuTab: 'search' | 'queue' | 'style';
   storyFramingMode: boolean; // desktop 9:16 preview frame
   isStatusMode: boolean; // clean lyrics-only mode with no player/headers/toolbars
   isKineticMode: boolean; // kinetic typography overlay mode
@@ -72,6 +74,8 @@ interface SettingsState {
   toggleExport: (open?: boolean) => void;
   toggleQueue: (open?: boolean) => void;
   toggleSearch: (open?: boolean) => void;
+  toggleMobileMenu: (open?: boolean) => void;
+  setMobileMenuTab: (tab: 'search' | 'queue' | 'style') => void;
   toggleStoryFraming: () => void;
   toggleStatusMode: (open?: boolean) => void;
 }
@@ -162,6 +166,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   isExportOpen: false,
   isQueueOpen: false,
   isSearchOpen: false,
+  isMobileMenuOpen: false,
+  mobileMenuTab: 'search',
   storyFramingMode: false,
   isStatusMode: false,
   isKineticMode: false,
@@ -255,6 +261,9 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     set((state) => ({ isQueueOpen: open !== undefined ? open : !state.isQueueOpen })),
   toggleSearch: (open) =>
     set((state) => ({ isSearchOpen: open !== undefined ? open : !state.isSearchOpen })),
+  toggleMobileMenu: (open) =>
+    set((state) => ({ isMobileMenuOpen: open !== undefined ? open : !state.isMobileMenuOpen })),
+  setMobileMenuTab: (tab) => set({ mobileMenuTab: tab }),
   toggleStoryFraming: () =>
     set((state) => ({ storyFramingMode: !state.storyFramingMode })),
   toggleStatusMode: (open) =>

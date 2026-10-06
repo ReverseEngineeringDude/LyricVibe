@@ -13,7 +13,7 @@ import { Queue } from '@/components/Queue';
 import { LyricPicker } from '@/components/LyricPicker';
 import { ClipPicker } from '@/components/ClipPicker';
 import { ExportModal } from '@/components/ExportModal';
-import { BottomSheet } from '@/components/BottomSheet';
+import { MobileMenu } from '@/components/MobileMenu';
 import { KineticOverlay } from '@/components/KineticOverlay';
 
 import {
@@ -25,6 +25,7 @@ import {
   AlertCircle,
   Loader2,
   X,
+  Menu,
   Eye,
   EyeOff,
   Play,
@@ -51,7 +52,10 @@ export const App: React.FC = () => {
   const toggleKineticMode = useSettingsStore((s) => s.toggleKineticMode);
   const storyFramingMode = useSettingsStore((s) => s.storyFramingMode);
   const toggleStoryFraming = useSettingsStore((s) => s.toggleStoryFraming);
+  const isMobileMenuOpen = useSettingsStore((s) => s.isMobileMenuOpen);
+  const toggleMobileMenu = useSettingsStore((s) => s.toggleMobileMenu);
 
+  const queue = usePlayerStore((s) => s.queue);
   const error = usePlayerStore((s) => s.error);
   const setError = usePlayerStore((s) => s.setError);
   const currentTrack = usePlayerStore((s) => s.currentTrack);
@@ -167,6 +171,26 @@ export const App: React.FC = () => {
                 {rightPanelOpen ? <PanelRightClose className="w-4 h-4" /> : <PanelRightOpen className="w-4 h-4" />}
               </button>
             </div>
+            {/* Hamburger Menu Trigger for Mobile Devices (lg:hidden) */}
+            <button
+              onClick={() => toggleMobileMenu()}
+              className={`lg:hidden p-2 rounded-xl border transition-all flex items-center justify-center relative ${
+                isMobileMenuOpen
+                  ? 'bg-brand-500 text-white border-brand-400 shadow-md shadow-brand-500/30'
+                  : 'bg-surfaceLight hover:bg-surfaceLight/80 border-surfaceBorder text-gray-200 hover:text-white'
+              }`}
+              aria-label={isMobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+              title="Open menu"
+            >
+              {isMobileMenuOpen ? (
+                <X className="w-4 h-4" />
+              ) : (
+                <Menu className="w-4 h-4" />
+              )}
+              {queue.length > 0 && !isMobileMenuOpen && (
+                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-brand-500 ring-2 ring-background" />
+              )}
+            </button>
           </div>
         </header>
       )}
@@ -394,8 +418,8 @@ export const App: React.FC = () => {
           </aside>
         )}
 
-        {/* Mobile / Tablet BottomSheet */}
-        {!isStatusMode && <BottomSheet />}
+        {/* Mobile / Tablet Hamburger Navigation Drawer */}
+        {!isStatusMode && <MobileMenu />}
 
         {/* Sliding Queue Drawer */}
         <Queue />
